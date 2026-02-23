@@ -1,4 +1,4 @@
-name: PurePlay-Anti-Cheat
+name: PurePlay-Research-Kit
 channels:
   - conda-forge
   - defaults
@@ -22,8 +22,6 @@ dependencies:
   - optuna-integration
   - plotly
   - scikit-learn
-  - psutil
-  - onnx
 
   # --- Pip Packages ---
   - pip:

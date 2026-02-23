@@ -2,14 +2,14 @@ import threading
 import pyarrow
 import queue
 import time
-import utilities, devices
+import utilities, devices, constants, logger
 
 def collect_input_data(config: object) -> None:
     """Collects input data and saves it to a Parquet file."""
-    file_name = f'{config.save_dir}/inputs_{time.strftime("%b-%d-%Y_%I-%M%p")}.parquet'
+    file_name = f'{config.save_dir}/inputs_{time.strftime(constants.TIMESTAMP_FORMAT)}.parquet'
     whitelist = config.keyboard_whitelist + config.mouse_whitelist + config.gamepad_whitelist
     schema = pyarrow.schema(
-        fields=[(feature, pyarrow.float32()) for feature in whitelist], 
+        fields=[(feature, pyarrow.float32()) for feature in whitelist],
         metadata={b'polling_rate': str(config.polling_rate).encode('utf-8')}
     )
 
@@ -22,19 +22,25 @@ def collect_input_data(config: object) -> None:
     )
     writer_thread.start()
     
-    if any(mouse_delta in config.mouse_whitelist for mouse_delta in ('deltaX', 'deltaY')):
-        threading.Thread(target=devices.listen_for_mouse_movement, args=(kill_event,), daemon=True).start()
+    mouse_listener_thread = None
+    if any(bind in config.mouse_whitelist for bind in constants.MOUSE_ANALOGS):
+        mouse_listener_thread = threading.Thread(
+            target=devices.listen_for_mouse_movement, 
+            args=(kill_event,),
+            daemon=True
+        )
+        mouse_listener_thread.start()
     
     poll_interval = 1.0 / config.polling_rate
-    print(f'Polling at {config.polling_rate}Hz (press {', '.join(config.kill_bind_list)} to stop)...')
+    logger.info(f'Polling at {config.polling_rate}Hz (press {", ".join(config.kill_bind_list)} to stop)...')
 
     try:
         while True:
-            if utilities.should_kill(config):
-                print('Kill bind(s) detected. Stopping...')
+            if devices.should_kill(config):
+                logger.info('Kill bind(s) detected. Stopping...')
                 break
             
-            row = utilities.poll_if_capturing(config)
+            row = devices.poll_if_capturing(config)
             if row:
                 data_queue.put(row)
             
@@ -42,4 +48,6 @@ def collect_input_data(config: object) -> None:
     finally:
         kill_event.set()
         writer_thread.join()
-        print(f'Data saved to {file_name}')
+        if mouse_listener_thread is not None:
+            mouse_listener_thread.join()
+        logger.info(f'Data saved to {file_name}')

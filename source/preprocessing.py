@@ -1,107 +1,160 @@
+import sklearn.preprocessing
 import pyarrow.parquet
 import lightning
+import pydantic
+import typing
 import polars
 import torch
 import numpy
 import os
-import constants, devices
-    
-class PolarsStandardScaler:
-    def __init__(self):
-        self.means = None
-        self.stds = None
-        self.columns = []
+import constants, devices, logger
 
-    def fit(self, file_paths, scalable_columns):
-        if not scalable_columns: return
-        
-        self.columns = scalable_columns
-        stats = (
-            polars.scan_parquet(file_paths).select([
-                *[polars.col(column).mean().alias(f'{column}_mean') for column in scalable_columns],
-                *[polars.col(column).std().alias(f'{column}_std') for column in scalable_columns]
-            ]).collect(streaming=True)
-        )
+class DataConfig(pydantic.BaseModel):
+    """Parameters defining dataset properties."""
+    whitelist: typing.List[str]
+    polling_rate: int
+    ignore_empty_polls: bool
+    reset_mouse_on_release: bool
+    polls_per_sequence: int
 
-        self.means = numpy.array([stats[f'{column}_mean'][0] for column in scalable_columns], dtype=numpy.float32)
-        self.stds = numpy.array([stats[f'{column}_std'][0] for column in scalable_columns], dtype=numpy.float32)
-        self.stds[self.stds == 0] = 1.0
+    @property
+    def features_per_poll(self) -> int:
+        return len(self.whitelist)
 
 class InputDataset(torch.utils.data.Dataset):
-    """Dataset for input sequences stored in Parquet files."""
-    def __init__(self, file_path: str, polls_per_sequence: int, whitelist: list[str], ignore_empty_polls: bool = True, label: int = 0):
-        self.polls_per_sequence = polls_per_sequence
-        self.polling_rate = pyarrow.parquet.read_metadata(file_path).metadata.get(b'polling_rate', b'1000').decode("utf-8")
+    """Dataset for loading Parquet files."""
+    def __init__(
+            self,
+            file_path: str,
+            data_params: DataConfig,
+            scaler: object,
+            label: int = 0
+        ):
+        self.data_params = data_params
         self.label = label
-        lazy_frame = polars.scan_parquet(file_path)
+        self.polling_rate = pyarrow.parquet.read_metadata(file_path).metadata.get(b'polling_rate').decode('utf-8')
+        if not self.polling_rate:
+            raise ValueError(f'Polling rate metadata is missing from file: {file_path}')
         
         # Filter out empty polls if needed (should I filter out whole sequences to preserve temporal structure?)
-        if ignore_empty_polls:
-            lazy_frame = lazy_frame.filter(polars.sum_horizontal(whitelist) != 0)
+        lazy_frame = polars.scan_parquet(file_path).select(data_params.whitelist)
+        if data_params.ignore_empty_polls:
+            lazy_frame = lazy_frame.filter(polars.sum_horizontal(data_params.whitelist) != 0)
+        data_array = lazy_frame.collect().to_numpy(writable=True).astype(numpy.float32)
         
-        data_frame = lazy_frame.select(whitelist).collect()
-        data_array = data_frame.to_numpy(writable=True).astype(numpy.float32)
+        # Scale the data
+        data_array = scaler.transform(data_array)
         
         # Trim excess rows to make full sequences
-        num_sequences = len(data_array) // self.polls_per_sequence
-        total_rows = num_sequences * self.polls_per_sequence
-        data_array = data_array[:total_rows].reshape(num_sequences, self.polls_per_sequence, -1)
-        
+        num_sequences = len(data_array) // data_params.polls_per_sequence
+        total_rows = num_sequences * data_params.polls_per_sequence
+        data_array = data_array[:total_rows].reshape(num_sequences, data_params.polls_per_sequence, -1)
+
         self.data_tensor = torch.from_numpy(data_array)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Returns the number of sequences in the dataset."""
         return len(self.data_tensor)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns a sequence and its label."""
         return self.data_tensor[index], torch.tensor(self.label, dtype=torch.float32)
-    
-class TrainingDataModule(lightning.LightningDataModule):
-    def __init__(self, config: object):
+
+class PurePlayDataModule(lightning.LightningDataModule):
+    def __init__(self, config: object, data_params: DataConfig = None):
         super().__init__()
         self.config = config
-        self.whitelist = config.keyboard_whitelist + config.mouse_whitelist + config.gamepad_whitelist
-        self.is_supervised = config.model_class.training_type == constants.TrainingType.SUPERVISED
-        self.scaler = PolarsStandardScaler()
+        self.batch_size = config.sequences_per_batch # Needs to be pulled out for tuning
+        self.data_params = data_params or DataConfig(
+            whitelist=config.keyboard_whitelist + config.mouse_whitelist + config.gamepad_whitelist,
+            polling_rate=None,
+            ignore_empty_polls=config.ignore_empty_polls, # Anything left as none here will be pulled from the data
+            reset_mouse_on_release=None,
+            polls_per_sequence=config.polls_per_sequence
+        ).model_dump()
+
+        self.scaler = sklearn.preprocessing.RobustScaler()
         
         self.train_dataset = None
-        self.val_dataset = None
-        self.polling_rate = None
-        self.batch_size = 32
+        self.validation_dataset = None
+        self.test_datasets = []
 
-    def setup(self, stage: str = None):
-        """Creates and sets up training and validation datasets."""
-        training_files = [os.path.join(self.config.training_file_dir, file_path) for file_path in os.listdir(self.config.training_file_dir)]
-        validation_files = [os.path.join(self.config.validation_file_dir, file_path) for file_path in os.listdir(self.config.validation_file_dir)]
-        
-        cheat_training_files = []
-        cheat_validation_files = []
-        if self.is_supervised:
-            cheat_training_files = [os.path.join(self.config.cheat_training_file_dir, file_path) for file_path in os.listdir(self.config.cheat_training_file_dir)]
-            cheat_validation_files = [os.path.join(self.config.cheat_validation_file_dir, file_path) for file_path in os.listdir(self.config.cheat_validation_file_dir)]
-        
-        all_fit_files = training_files + (cheat_training_files if self.is_supervised else [])
-        self.scaler.fit(all_fit_files, self.whitelist)
+    def _get_files_from_dir(self, directory: str) -> list[str]:
+        """Returns a list of file paths for all Parquet files in the given directory."""
+        return [os.path.join(directory, file_path) for file_path in os.listdir(directory)]
 
-        def make_datasets(file_paths: list, label: int = 0):
-            return [InputDataset(file_path, self.config.polls_per_sequence, self.whitelist, self.config.ignore_empty_polls, label=label) for file_path in file_paths]
+    def _make_datasets(self, file_paths: list, label: int = 0) -> list[InputDataset]:
+        """Creates InputDataset instances for each given file path."""
+        return [InputDataset(
+            file_path=file_path,
+            data_params=self.data_params,
+            scaler=self.scaler,
+            label=label
+        ) for file_path in file_paths]
+    
+    def _check_consistency(self, datasets: list[InputDataset]) -> None:
+        """Checks that all dataset properties match."""
+        for key, value in self.data_params:
+            if value is None:
+                value = datasets[0].data_params[key]
+            for dataset in datasets:
+                if dataset.data_params[key] != value:
+                    raise ValueError(f'Mismatched parameter "{key}" found in "{dataset.file_path}"')
 
-        train_datasets = make_datasets(training_files)
-        val_datasets = make_datasets(validation_files)
-        if self.is_supervised:
-            train_datasets += make_datasets(cheat_training_files, label=1)
-            val_datasets += make_datasets(cheat_validation_files, label=1)
+    def _fit_scaler_to_files(self, file_paths: list[str]) -> None:
+        """Fits the internal scaler to a specified list of files."""
+        logger.info(f'Fitting scaler on {len(file_paths)} files...')
+        for file_path in file_paths:
+            lazy_frame = polars.scan_parquet(file_path).select(self.whitelist)
+            if self.data_params.ignore_empty_polls:
+                lazy_frame = lazy_frame.filter(polars.sum_horizontal(self.whitelist) != 0)
+            self.scaler.partial_fit(lazy_frame.collect().to_numpy().astype(numpy.float32))
 
-        all_datasets = train_datasets + val_datasets
-        self.polling_rate = all_datasets[0].polling_rate
-        if not all(dataset.polling_rate == self.polling_rate for dataset in all_datasets):
-            raise ValueError("Inconsistent polling rates across files.")
-        
-        self.train_dataset = torch.utils.data.ConcatDataset(train_datasets)
-        self.val_dataset = torch.utils.data.ConcatDataset(val_datasets)
+    def update_scaler(self, scaler_name: str, scaler_params: dict = None) -> None:
+        """Sets scaler class and optionally fits it to specified params."""
+        self.scaler = constants.SCALER_MAP[scaler_name]
+        if self.train_dataset and not scaler_params:
+            all_training_files = self._get_files_from_dir(self.config.training_file_dir)
+            if self.config.model_class.training_type == constants.TrainingType.SUPERVISED:
+                all_training_files += self._get_files_from_dir(self.config.cheat_training_file_dir)
+            self._fit_scaler_to_files(all_training_files)
+        for attribute_name, value in scaler_params:
+            if hasattr(self.scaler, attribute_name):
+                setattr(self.scaler, attribute_name, value)
 
-    def train_dataloader(self):
+    def setup(self, stage: str = None) -> None:
+        """Sets up the datasets for training, validation, or testing."""
+        if stage == 'fit':
+            if self.train_dataset is not None:
+                return
+
+            benign_training_files = self._get_files_from_dir(self.config.training_file_dir)
+            all_training_files = benign_training_files.copy()
+            train_datasets = self._make_datasets(benign_training_files)
+            validation_datasets = self._make_datasets(self._get_files_from_dir(self.config.validation_file_dir))
+            if self.config.model_class.training_type == constants.TrainingType.SUPERVISED:
+                cheat_training_files = list(self._get_files_from_dir(self.config.cheat_training_file_dir))
+                all_training_files.extend(cheat_training_files)
+                train_datasets += self._make_datasets(cheat_training_files, label=1)
+                validation_datasets += self._make_datasets(self._get_files_from_dir(self.config.cheat_validation_file_dir), label=1)
+
+            self._fit_scaler_to_files(all_training_files)
+
+            all_datasets = train_datasets + validation_datasets
+            self._check_consistency(all_datasets)
+
+            self.train_dataset = torch.utils.data.ConcatDataset(train_datasets)
+            self.validation_dataset = torch.utils.data.ConcatDataset(validation_datasets)
+
+        if stage == 'test':
+            if self.test_datasets is not None:
+                return
+            
+            self.test_datasets = self._make_datasets(self._get_files_from_dir(self.config.testing_file_dir))
+            self._check_consistency(self.test_datasets)
+
+    def train_dataloader(self) -> torch.utils.data.DataLoader:
+        """Returns a DataLoader for the training dataset."""
         return torch.utils.data.DataLoader(
             dataset=self.train_dataset, 
             shuffle=True, 
@@ -110,40 +163,20 @@ class TrainingDataModule(lightning.LightningDataModule):
             pin_memory=True,
             persistent_workers=True
         )
-    
-    def val_dataloader(self):
+
+    def val_dataloader(self) -> torch.utils.data.DataLoader:
+        """Returns a DataLoader for the validation dataset."""
         return torch.utils.data.DataLoader(
-            dataset=self.val_dataset, 
+            dataset=self.validation_dataset, 
             shuffle=False, 
             batch_size=self.batch_size,
             num_workers=devices.CPU_WORKERS,
             pin_memory=True,
             persistent_workers=True
         )
-    
-class TestingDataModule(lightning.LightningDataModule):
-    def __init__(self, config, model):
-        super().__init__()
-        self.config = config
-        self.model = model
-        self.test_datasets = []
 
-    def setup(self, stage: str = None):
-        testing_files = [os.path.join(self.config.testing_file_dir, file_path) for file_path in os.listdir(self.config.testing_file_dir)]
-        for file_path in testing_files:
-            test_dataset = InputDataset(
-                file_path,
-                self.model.polls_per_sequence,
-                self.model.whitelist,
-                self.model.ignore_empty_polls
-            )
-            
-            if test_dataset.polling_rate != self.model.polling_rate:
-                raise ValueError(f'Model expects polling rate: {self.model.polling_rate}. File: "{file_path}" has polling rate: {test_dataset.polling_rate}.')
-            
-            self.test_datasets.append(test_dataset)
-
-    def test_dataloader(self):
+    def test_dataloader(self) -> list[torch.utils.data.DataLoader]:
+        """Returns a list of DataLoaders for each test dataset."""
         return [
             torch.utils.data.DataLoader(
                 dataset=dataset,

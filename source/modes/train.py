@@ -1,69 +1,48 @@
 import optuna.integration.pytorch_lightning
 import optuna.visualization
 import lightning
-import psutil
 import optuna
 import torch
-import numpy
 import time
-#import glob
-#import json
-#import onnx
-import preprocessing, utilities, constants, models
+import preprocessing, devices, constants, models, logger
 
 def train_model(config: object) -> None:
     torch.serialization.add_safe_globals([models.ModelConfig, models.DataConfig])
 
     # Load and configure the data
-    data_module = preprocessing.TrainingDataModule(config)
-    data_module.setup()
-    data_params = models.DataConfig(
-        whitelist = config.keyboard_whitelist + config.mouse_whitelist + config.gamepad_whitelist,
-        polling_rate = data_module.polling_rate,
-        ignore_empty_polls = config.ignore_empty_polls,
-        polls_per_sequence = config.polls_per_sequence,
-        sequences_per_batch = data_module.batch_size
-    )
+    data_module = preprocessing.PurePlayDataModule(config)
     kill_callback = KillTrainingCallback(config)
-    if not config.sequences_per_batch:
-        _tune_batch_size(config, data_module, data_params, kill_callback)
-    else:
-        print(f'Using batch size from config: {config.sequences_per_batch}')
+    if config.sequences_per_batch:
+        logger.info(f'Using batch size from config: {config.sequences_per_batch}')
         data_module.batch_size = config.sequences_per_batch
+    else:
+        _tune_batch_size(config, data_module, data_module.data_params, kill_callback)
         
     # Start optuna study
-    study = optuna.create_study(study_name=f'{config.model_class} {time.ctime()}')
+    study = optuna.create_study(study_name=f'{config.model_class}-{time.strftime(constants.TIMESTAMP_FORMAT)}')
     try:
         study.optimize(
-            lambda trial: _objective(trial, config, data_module, data_params, kill_callback),
+            lambda trial: _objective(trial, config, data_module, data_module.data_params, kill_callback),
             callbacks=[kill_callback],
             gc_after_trial=True
         )
     except Exception as e:
-        print(f'Trial interrupted due to exception: {e}')
+        logger.error(f'Trial interrupted due to exception: {e}')
     if len(study.trials) == 0:
-        print('No trials completed. Exiting early.')
+        logger.warning('No trials completed. Exiting early.')
         return
     
-    # Export the best model to .pt and .onnx
-    # trial_dir = f'{config.save_dir}/trial_{study.best_trial.number}'
-    # checkpoint_path = glob.glob(f'{trial_dir}/*.ckpt')[0]
-    # model = config.model_class.load_from_checkpoint(checkpoint_path, data_params=data_params)
-    # model.eval()
-    # _export_model_to_torchscript(config, model)
-    # _export_model_to_onnx(config, model)
-    
-    # Generate reports
-    print(f'\nBest trial: {study.best_trial.number}')
-    print(f'Best val loss: {study.best_value:.6f}')
+    # Generate study reports
+    logger.info(f'\nBest trial: {study.best_trial.number}')
+    logger.info(f'Best val loss: {study.best_value:.6f}')
     if len(study.trials) == 1:
-        print('Not enough trials completed for a comparison. Skipping visualization.')
+        logger.warning('Not enough trials completed for a comparison. Skipping visualization.')
         return
     figure = optuna.visualization.plot_optimization_history(study)
     figure.write_html(f'{config.save_dir}/optimization_history.html')
     figure = optuna.visualization.plot_param_importances(study)
     figure.write_html(f'{config.save_dir}/param_importances.html')
-    print('Report graphs saved.')
+    logger.info('Report graphs saved.')
 
 #region Custom Callbacks
 class KillTrainingCallback(lightning.pytorch.callbacks.Callback):
@@ -75,7 +54,7 @@ class KillTrainingCallback(lightning.pytorch.callbacks.Callback):
 
     def on_train_batch_end(self, trainer, *args, **kwargs):
         """Pytorch Lightning hook to stop mid-trial."""
-        if not self.must_stop_study and utilities.should_kill(self.config):
+        if not self.must_stop_study and devices.should_kill(self.config):
             self.must_stop_study = True
             trainer.should_stop = True
 
@@ -86,13 +65,22 @@ class KillTrainingCallback(lightning.pytorch.callbacks.Callback):
 #endregion
 
 #region Objective Functions
-def _objective(trial: optuna.Trial, config: object, data_module: preprocessing.TrainingDataModule, data_params: dict, kill_callback: KillTrainingCallback) -> float:
+def _objective(
+        trial: optuna.Trial, 
+        config: object, 
+        data_module: preprocessing.PurePlayDataModule, 
+        data_params: dict, 
+        kill_callback: KillTrainingCallback
+    ) -> float:
     """Objective function for hyperparameter tuning."""
+    # Choose a scaler
+    scaler_name = trial.suggest_categorical('scaler_name', list(constants.SCALER_MAP.keys()))
+    data_module.update_scaler(scaler_name)
+    
     # Set up model
     model_params = _suggest_model_params(trial, data_params)
     model = config.model_class(model_params, data_params)
-    model.set_scaler_params(data_module.scaler.means, data_module.scaler.stds)
-    _enforce_performance_constraints(config, model, data_params)
+    model.save_scaler(data_module.scaler)
 
     # Set up trainer
     swa_start = trial.suggest_int('swa_epoch_start', 20, 2000)
@@ -105,121 +93,83 @@ def _objective(trial: optuna.Trial, config: object, data_module: preprocessing.T
         #gradient_clip_algorithm='norm',
         callbacks=[
             kill_callback,
-            lightning.pytorch.callbacks.EarlyStopping(monitor='val_loss', patience=20, min_delta=0.0001, verbose=True),
+            lightning.pytorch.callbacks.EarlyStopping(
+                monitor='val_loss', 
+                patience=20, 
+                min_delta=0.0001, 
+                verbose=True
+            ),
             lightning.pytorch.callbacks.ModelCheckpoint(monitor='val_loss', dirpath=trial_directory),
             optuna.integration.pytorch_lightning.PyTorchLightningPruningCallback(trial, monitor='val_loss'),
             lightning.pytorch.callbacks.StochasticWeightAveraging(swa_lrs=swa_lr, swa_epoch_start=swa_start),
             lightning.pytorch.callbacks.LearningRateMonitor(logging_interval='epoch')
         ],
-        profiler=lightning.pytorch.profilers.SimpleProfiler(dirpath=trial_directory, filename='performance_log'),
-        logger=lightning.pytorch.loggers.TensorBoardLogger(save_dir=config.save_dir, version=f'trial_{trial.number}')
+        profiler=lightning.pytorch.profilers.SimpleProfiler(
+            dirpath=trial_directory, 
+            filename='performance_log'
+        ),
+        logger=lightning.pytorch.loggers.TensorBoardLogger(
+            save_dir=config.save_dir, 
+            version=f'trial_{trial.number}'
+        )
     )
 
     # Train
-    print(f'\nTrial: {trial.number}')
+    logger.info(f'\nTrial: {trial.number}')
     trainer.fit(model, datamodule=data_module)
     val_loss = trainer.callback_metrics.get('val_loss')
     return val_loss.item() if val_loss is not None else float('inf')
 #endregion
 
 #region Helpers
-def _tune_batch_size(config: object, data_module: preprocessing.TrainingDataModule, data_params: dict, kill_callback: KillTrainingCallback) -> int:
+def _tune_batch_size(
+        config: object, 
+        data_module: preprocessing.PurePlayDataModule,
+        data_params: dict, 
+        kill_callback: KillTrainingCallback
+    ) -> int:
     """Automatically maximizes batch size for the worst-case model from the objective function. Sets batch size in the data module."""
-    print('Tuning batch size for hardware...')
+    logger.info('Tuning batch size for hardware...')
     model_params = models.ModelConfig(
         hidden_layers=constants.MAX_HIDDEN_LAYERS,
         hidden_size=constants.MAX_HIDDEN_SIZE,
         latent_size=len(data_params.whitelist)
     )
     model = config.model_class(model_params, data_params)
-    model.set_scaler_params(data_module.scaler.means, data_module.scaler.stds)
-    trainer = lightning.Trainer(max_epochs=50, logger=False, enable_model_summary=False, callbacks=kill_callback)
+    model.save_scaler(data_module.scaler)
+    trainer = lightning.Trainer(
+        max_epochs=50, 
+        logger=False, 
+        enable_model_summary=False, 
+        callbacks=kill_callback
+    )
     tuner = lightning.pytorch.tuner.Tuner(trainer)
-    optimal_batch_size = tuner.scale_batch_size(model=model, datamodule=data_module) # This function also sets the self.batch_size property in the data module.
-    print(f'Optimal batch size found: {optimal_batch_size}')
-    return optimal_batch_size
+    max_batch_size = tuner.scale_batch_size(model=model, datamodule=data_module) # This function also sets the self.batch_size property in the data module.
+    logger.info(f'Maximum batch size found: {max_batch_size}')
+    return max_batch_size
 
-def _suggest_model_params(trial: optuna.Trial, data_params: models.DataConfig) -> dict:
-    """Chooses all model hyperparameters for a given optuna trial."""
+def _suggest_model_params(trial: optuna.Trial, data_params: preprocessing.DataConfig) -> dict:
     max_data_features = data_params.polls_per_sequence * len(data_params.whitelist)
-    base_hidden_size = trial.suggest_int(f'hidden_size', 16, max_data_features)
-    model_params = models.ModelConfig(
+    base_hidden_size = trial.suggest_int('hidden_size', 16, max_data_features)
+
+    optimizer_name = trial.suggest_categorical('optimizer_name', list(constants.OPTIMIZER_MAP.keys()))
+    scheduler_name = trial.suggest_categorical('scheduler_name', [None] + list(constants.SCHEDULER_MAP.keys()))
+    weight_decay = None
+    if optimizer_name in constants.OPTIMIZERS_WITH_WEIGHT_DECAY:
+        weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
+    momentum = None
+    if optimizer_name in constants.OPTIMIZERS_WITH_MOMENTUM:
+        momentum = trial.suggest_float('momentum', 0.0, 0.99, log=True)
+
+    return models.ModelConfig(
         hidden_layers=trial.suggest_int('hidden_layers', 1, constants.MAX_HIDDEN_LAYERS),
         hidden_size=base_hidden_size,
-        latent_size=trial.suggest_int(f'latent_size', 8, base_hidden_size),
+        latent_size=trial.suggest_int('latent_size', 8, base_hidden_size),
         dropout=trial.suggest_float('dropout', 0.0, 0.4, step=0.1),
-        optimizer_name=trial.suggest_categorical('optimizer_name', list(constants.OPTIMIZER_MAP.keys())),
-        scheduler_name=trial.suggest_categorical('scheduler_name', [None] + list(constants.SCHEDULER_MAP.keys())),
+        optimizer_name=optimizer_name,
+        scheduler_name=scheduler_name,
         learning_rate=trial.suggest_float('learning_rate', 1e-6, 1e-3, log=True),
-        weight_decay=trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
+        weight_decay=weight_decay,
+        momentum=momentum
     )
-    return model_params
-
-def _enforce_performance_constraints(config: object, model: lightning.LightningModule, data_params: dict) -> None:
-    """Limits an optuna trial based on model performance thresholds defined in the config."""
-    model.eval() 
-    process = psutil.Process()
-    dummy_input = torch.randn(1, config.polls_per_sequence, len(data_params.whitelist))
-    
-    # Inference P99 Latency
-    with torch.no_grad():
-        for _ in range(10):
-            model(dummy_input)
-        latencies = []
-        for _ in range(100):
-            t0 = time.perf_counter()
-            model(dummy_input)
-            t1 = time.perf_counter()
-            latencies.append((t1 - t0) * 1000)
-    p99_latency = numpy.percentile(latencies, 99)
-    if p99_latency > config.max_inference_latency_ms:
-        raise optuna.exceptions.TrialPruned(f'P99 Latency too high: {p99_latency:.2f}ms > {config.max_inference_latency_ms}ms')
-
-    # Peak Memory
-    # Run a tight loop for a fixed duration to measure sustained load
-    duration_sec = 2.0
-    start_profile = time.time()
-    with torch.no_grad():
-        while time.time() - start_profile < duration_sec:
-            model(dummy_input)
-    current_memory_mb = process.memory_info().rss / (1024 * 1024) # Resident Set Size in MB
-    if current_memory_mb > config.max_peak_memory_mb:
-         raise optuna.exceptions.TrialPruned(f'Memory usage too high: {current_memory_mb:.1f}MB')
-
-    model.train()
-
-# def _export_model_to_torchscript(config: object, model: lightning.LightningModule) -> None:
-#     print('Exporting model to TorchScript...')
-#     torchscript_path = f'{config.save_dir}/best_model.pt'
-#     pt_model = model.to_torchscript()
-    
-#     # Add metadata
-#     params = model.hparams.data_params
-#     pt_model.register_attribute('whitelist_json', str, str(params['whitelist']))
-#     pt_model.register_attribute('polling_rate', int, params['polling_rate'])
-#     pt_model.register_attribute('ignore_empty_polls', bool, params['ignore_empty_polls'])
-#     pt_model.register_attribute('polls_per_sequence', int, params['polls_per_sequence'])
-#     pt_model.save(torchscript_path)
-#     print(f'Successfully saved TorchScript with metadata to: {torchscript_path}')
-
-# def _export_model_to_onnx(config: object, model: lightning.LightningModule) -> None:
-#     print('Exporting model to ONNX...')
-#     onnx_path = f'{config.save_dir}/model.onnx'
-#     dummy_input = torch.randn(1, config.polls_per_sequence, len(model.hparams.data_params['whitelist']))
-#     model.to_onnx(
-#         onnx_path,
-#         dummy_input,
-#         export_params=True,
-#         input_names=['input'],
-#         output_names=['output'],
-#         dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
-#     )
-
-#     # Add metadata
-#     model_proto = onnx.load(onnx_path)
-#     meta = model_proto.metadata_props.add()
-#     meta.key = 'data_params'
-#     meta.value = json.dumps(model.hparams.data_params) # Serialize dict to JSON string
-#     onnx.save(model_proto, onnx_path)
-#     print(f'Successfully saved ONNX with metadata to: {onnx_path}')
 #endregion

@@ -1,17 +1,12 @@
 import lightning
-import preprocessing
+import preprocessing, models
 
 def run_static_analysis(config: object) -> None:
     """Performs static analysis on selected data files using a pre-trained model."""
-    # Load model class from file rather than config
-    # Add option to load from torchscript, checkpoint, or onnx
-    model = config.model_class.load_from_checkpoint(config.model_file)
-
-    data_module = preprocessing.TestingDataModule(config, model)
-    data_module.setup()
-
-    trainer = lightning.Trainer(
-        logger=False,
-        enable_checkpointing=False
-    )
+    model = models.BaseModel.load_model(config.model_file)
+    data_module = preprocessing.PurePlayDataModule(config=config, data_params=model.data_params)
+    data_module.update_scaler(model.hparams.scaler_name, model.hparams.scaler_params)
+    trainer = lightning.Trainer(logger=False, enable_checkpointing=False)
     trainer.test(model, datamodule=data_module)
+    # Graphing?
+    # The output of the test method saves reconstruction history to a file.

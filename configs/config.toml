@@ -1,23 +1,21 @@
-mode = 'collect' # collect, train, test, deploy
 kill_bind_list = ['ESC']
 kill_bind_logic = 'ANY'
 
 [collect]
 save_dir = ''
-polling_rate = 125 # 60 - 1000Hz
-ignore_empty_polls = true
+polling_rate = 125 # 60 - 1000Hz WARNING: higher rates can cause performance issues and may not be supported by all hardware
+ignore_empty_polls = true # If true, polls where all values are 0 will not be saved (can help reduce dataset size and filter out noise, but may also exclude legitimate data points where no input was made)
+reset_mouse_on_release = true # Resets mouse deltas to 0 when capture bind(s) are released (prevents large deltas from accumulating and being captured when binds are pressed again)
 capture_bind_list = ['right']
 capture_bind_logic = 'ANY'
 keyboard_whitelist = []
-mouse_whitelist = ['deltaX', 'deltaY']
+mouse_whitelist = ['directionX', 'directionY, velocity']
 gamepad_whitelist = []
 
 [train]
 save_dir = ''
 model_class = '' # e.g., 'LSTMAutoencoder' (See documentation or models.py for available models)
-max_inference_latency_ms = 1000000 # Find a good range to recommend for these         SHOULD THE TYPE/UNIT BE IN THE NAME?
-max_peak_memory_mb = 10000000 # Remember to add config validation for these.
-ignore_empty_polls = true
+ignore_empty_polls = true # If true, polls where all values are 0 will not be loaded
 polls_per_sequence = 128 # Aim for between 0.5 and 2 seconds (related to polling rate)
 sequences_per_batch = 32 # Leave empty for auto-calculation based on hardware capabilities NOTE: consider adding a config validation warning if the number is too high for the hardware
 training_file_dir = '' # Remember to suggest to always use single quotes (escape character avoidance)
@@ -25,18 +23,16 @@ cheat_training_file_dir = ''
 validation_file_dir = ''
 cheat_validation_file_dir = ''
 keyboard_whitelist = []
-mouse_whitelist = ['deltaX', 'deltaY']
+mouse_whitelist = ['directionX', 'directionY, velocity']
 gamepad_whitelist = []
 
 [test]
 save_dir = ''
-model_class = '' # e.g., 'LSTMAutoencoder' (See documentation or models.py for available models)
 model_file = ''
 testing_file_dir = ''
 
 [deploy]
 save_dir = ''
-model_class = '' # e.g., 'LSTMAutoencoder' (See documentation or models.py for available models)
 model_file = ''
 write_to_file = true
 deployment_window_type = 'sliding'
