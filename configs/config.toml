@@ -9,7 +9,7 @@ reset_mouse_on_release = true # Resets mouse deltas to 0 when capture bind(s) ar
 capture_bind_list = ['right']
 capture_bind_logic = 'ANY'
 keyboard_whitelist = []
-mouse_whitelist = ['directionX', 'directionY, velocity']
+mouse_whitelist = ['directionX', 'directionY', 'velocity']
 gamepad_whitelist = []
 
 [train]
@@ -23,7 +23,7 @@ cheat_training_file_dir = ''
 validation_file_dir = ''
 cheat_validation_file_dir = ''
 keyboard_whitelist = []
-mouse_whitelist = ['directionX', 'directionY, velocity']
+mouse_whitelist = ['directionX', 'directionY', 'velocity']
 gamepad_whitelist = []
 
 [test]

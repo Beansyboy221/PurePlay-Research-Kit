@@ -22,6 +22,8 @@ dependencies:
   - optuna-integration
   - plotly
   - scikit-learn
+  - pyyaml
+  - h5py
 
   # --- Pip Packages ---
   - pip:

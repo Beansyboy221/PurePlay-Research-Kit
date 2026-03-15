@@ -42,7 +42,7 @@ if errorlevel 1 (
 )
 
 echo Starting PurePlay...
-python source\main.py
+python source/mode_select.py
 
 if errorlevel 1 (
     echo.
