@@ -7,7 +7,7 @@ class BindGate(enum.StrEnum):
     NONE = enum.auto()
 
 #region Keyboard
-class KeyboardButton(enum.StrEnum):
+class KeyboardButton(enum.StrEnum): # MISSING QUOTATIONS
     '''Enums for keys recognized by the Keyboard module.'''
     # Letters
     A = 'a'; B = 'b'; C = 'c'; D = 'd'; E = 'e'; F = 'f'; G = 'g'

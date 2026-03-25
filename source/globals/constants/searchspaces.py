@@ -1,3 +1,6 @@
+import sklearn.preprocessing
+import torch
+
 # Pre-Training
 BATCH_SIZE_TUNE_EPOCHS = 50
 
@@ -24,3 +27,45 @@ SWA_EPOCH_START_MIN = 20
 SWA_EPOCH_START_MAX = 2000
 SWA_LR_FACTOR_MIN = 0.05
 SWA_LR_FACTOR_MAX = 0.8
+
+#region Algorithms
+SUPPORTED_SCALERS: frozenset[type[sklearn.base.TransformerMixin]] = (
+    sklearn.preprocessing.StandardScaler, # May want to consider having another version where with_mean=False.
+    sklearn.preprocessing.MinMaxScaler,
+    sklearn.preprocessing.MaxAbsScaler # I think this will be the best choice.
+)
+
+SUPPORTED_OPTIMIZERS: frozenset[type[torch.optim.Optimizer]] = (
+    torch.optim.Adafactor,
+    torch.optim.Adadelta,
+    torch.optim.Adagrad,
+    torch.optim.Adam,
+    torch.optim.Adamax,
+    torch.optim.AdamW,
+    torch.optim.ASGD,
+    torch.optim.LBFGS,
+    torch.optim.NAdam,
+    torch.optim.RAdam,
+    torch.optim.RMSprop,
+    torch.optim.Rprop,
+    torch.optim.SGD,
+    torch.optim.SparseAdam
+)
+
+SUPPORTED_SCHEDULERS: frozenset[type[torch.optim.lr_scheduler.LRScheduler]] = (
+    torch.optim.lr_scheduler.MultiplicativeLR,
+    torch.optim.lr_scheduler.StepLR,
+    torch.optim.lr_scheduler.MultiStepLR,
+    torch.optim.lr_scheduler.ConstantLR,
+    torch.optim.lr_scheduler.LinearLR,
+    torch.optim.lr_scheduler.ExponentialLR,
+    torch.optim.lr_scheduler.SequentialLR,
+    torch.optim.lr_scheduler.CosineAnnealingLR,
+    #torch.optim.lr_scheduler.ChainedScheduler,
+    torch.optim.lr_scheduler.ReduceLROnPlateau,
+    torch.optim.lr_scheduler.CyclicLR,
+    torch.optim.lr_scheduler.CosineAnnealingWarmRestarts,
+    torch.optim.lr_scheduler.OneCycleLR,
+    torch.optim.lr_scheduler.PolynomialLR 
+)
+#endregion

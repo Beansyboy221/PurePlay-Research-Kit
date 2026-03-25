@@ -1,6 +1,5 @@
 import pydantic
 
-# PurePlay imports
 from globals.enums import binds
 
 class DataParams(pydantic.BaseModel):
@@ -9,7 +8,8 @@ class DataParams(pydantic.BaseModel):
     mouse_whitelist: list[binds.MouseBind] = pydantic.Field(default_factory=list)
     gamepad_whitelist: list[binds.GamepadBind] = pydantic.Field(default_factory=list)
     ignore_empty_polls: bool = True
-    polls_per_sequence: int = pydantic.Field(gt=0)
+    polls_per_window: int = pydantic.Field(gt=0)
+    window_stride: int = pydantic.Field(gt=0, lt=polls_per_window)
 
     @property
     def whitelist(self) -> list[binds.Bind]:
@@ -18,6 +18,10 @@ class DataParams(pydantic.BaseModel):
     @property
     def features_per_poll(self) -> int:
         return len(self.keyboard_whitelist + self.mouse_whitelist + self.gamepad_whitelist)
+
+    @property
+    def features_per_window(self) -> int:
+        return self.features_per_poll * self.polls_per_window
 
 class ResolvedDataParams(DataParams):
     '''DataParams extended with properties sourced from the dataset itself.'''

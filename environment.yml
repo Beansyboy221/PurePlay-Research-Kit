@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   # --- Base Dependencies ---
-  - python=3.11
+  - python=3.11     # Eventually update to >=3.14
   - pip
 
   # --- Conda Packages ---
@@ -22,11 +22,11 @@ dependencies:
   - optuna-integration
   - plotly
   - scikit-learn
-  - pyyaml
-  - h5py
+  - sk2torch         # Replace by hummingbird-ml or nvtabular for >=3.14
+  - blinker
 
   # --- Pip Packages ---
   - pip:
-    - XInput-Python
-    - keyboard
-    - mouse
+    - XInput-Python  #
+    - keyboard       # Replace by inputs for >=3.14
+    - mouse          #

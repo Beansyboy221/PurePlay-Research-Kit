@@ -1,9 +1,9 @@
 import lightning
 import torch
 
-from source.globals.constants import processors
-from source.globals import global_logger
-from source.utilities.data_utils import (
+from globals.constants import processors
+from utilities.app_utils import global_logger
+from . import (
     dataset_builder,
     scaler_manager,
     dataparams
@@ -16,9 +16,11 @@ class PurePlayDataModule(lightning.LightningDataModule):
             batch_size: int = None,
             labeled_train_dirs: dict[str, int] = None,
             labeled_validation_dirs: dict[str, int] = None,
-            testing_dir: str = None
+            testing_dir: str = None,
+            *args,
+            **kwargs
         ):
-        super().__init__()
+        super().__init__(*args, **kwargs)
         self.data_params = data_params
         self.batch_size = batch_size or 32
         self.labeled_train_dirs = labeled_train_dirs or {}
@@ -31,16 +33,16 @@ class PurePlayDataModule(lightning.LightningDataModule):
         self.train_dataset = None
         self.validation_dataset = None
         self.test_datasets = []
-
+    
     def _all_training_files(self) -> list[str]:
+        '''Returns a list of all training file paths.'''
         return [
-            file
+            file_path
             for directory in self.labeled_train_dirs
-            for file in self.builder.get_files_from_dir(directory)
+            for file_path in self.builder.get_files_from_dir(directory)
         ]
 
     def setup(self, stage: str = None) -> None:
-        '''Sets up the datasets for training, validation, or testing.'''
         if stage == 'fit':
             if self.train_dataset is not None or self.validation_dataset is not None:
                 return
@@ -60,7 +62,7 @@ class PurePlayDataModule(lightning.LightningDataModule):
                 return
 
             self.test_datasets = self.builder.make_datasets(
-                self.builder.get_files_from_dir(self.testing_dir),
+                file_paths=self.builder.get_files_from_dir(self.testing_dir),
                 label=0
             )
             self.builder.check_consistency(self.test_datasets)
