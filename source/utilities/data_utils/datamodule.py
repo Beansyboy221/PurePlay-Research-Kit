@@ -1,22 +1,24 @@
 import lightning
+import pydantic
 import torch
 
-from globals.constants import processors
+from globals import processors
 from utilities.app_utils import global_logger
+
 from . import (
     dataset_builder,
     scaler_manager,
-    dataparams
+    data_params
 )
 
 class PurePlayDataModule(lightning.LightningDataModule):
     def __init__(
             self,
-            data_params: dataparams.DataParams | dataparams.ResolvedDataParams,
+            data_params: data_params.DataParams | data_params.ResolvedDataParams,
             batch_size: int = None,
-            labeled_train_dirs: dict[str, int] = None,
-            labeled_validation_dirs: dict[str, int] = None,
-            testing_dir: str = None,
+            labeled_train_dirs: dict[pydantic.DirectoryPath, int] = None,
+            labeled_validation_dirs: dict[pydantic.DirectoryPath, int] = None,
+            testing_dir: pydantic.DirectoryPath = None,
             *args,
             **kwargs
         ):
@@ -34,7 +36,7 @@ class PurePlayDataModule(lightning.LightningDataModule):
         self.validation_dataset = None
         self.test_datasets = []
     
-    def _all_training_files(self) -> list[str]:
+    def _all_training_files(self) -> list[pydantic.FilePath]:
         '''Returns a list of all training file paths.'''
         return [
             file_path

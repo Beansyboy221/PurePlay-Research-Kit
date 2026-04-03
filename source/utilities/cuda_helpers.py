@@ -1,6 +1,6 @@
 import torch
 
-from . import global_logger
+from .app_utils import global_logger
 
 def optimize_cuda_for_hardware() -> None:
     '''Applies CUDA optimizations based on the detected GPU architecture.'''

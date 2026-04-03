@@ -3,14 +3,14 @@ import polars
 import torch
 import numpy
 
-from . import dataparams
+from . import data_params
 
 class FileDataset(torch.utils.data.Dataset):
     '''Dataset for loading and processing a Parquet file.'''
     def __init__(
             self,
             file_path: str,
-            data_params: dataparams.DataParams,
+            input_params: data_params.DataParams, # Come up with a better name
             scaler: sklearn.base.TransformerMixin,
             label: int = 0,
             *args,
@@ -25,8 +25,8 @@ class FileDataset(torch.utils.data.Dataset):
         reset_mouse_on_release = metadata.get('reset_mouse_on_release')
         if not reset_mouse_on_release:
             raise ValueError(f'Reset mouse on release metadata is missing from file: {file_path}')
-        self.data_params = dataparams.ResolvedDataParams(
-            **data_params.model_dump(),
+        self.data_params = data_params.ResolvedDataParams(
+            **input_params.model_dump(),
             polling_rate=int(polling_rate),
             reset_mouse_on_release=reset_mouse_on_release.lower() == 'true'
         )
@@ -41,9 +41,9 @@ class FileDataset(torch.utils.data.Dataset):
 
         self.data_tensor = self._create_windows(
             data=data_array, 
-            window_size=data_params.polls_per_window,
-            stride=data_params.window_stride,
-            filter_empty=data_params.ignore_empty_polls
+            window_size=input_params.polls_per_window,
+            stride=input_params.window_stride,
+            filter_empty=input_params.ignore_empty_polls
         )
         self.label_tensor = torch.tensor(label, dtype=torch.float32)
 

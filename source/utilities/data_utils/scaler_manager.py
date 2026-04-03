@@ -1,15 +1,16 @@
 import sklearn.preprocessing
+import pydantic
 import polars
 
-from . import dataparams
+from . import data_params
 
 class ScalerManager:
-    def __init__(self, data_params: dataparams.DataParams):
+    def __init__(self, data_params: data_params.DataParams):
         self.data_params = data_params
         self.scaler: sklearn.base.TransformerMixin = sklearn.preprocessing.StandardScaler()
         self._cache: list[sklearn.base.TransformerMixin] = []
 
-    def fit(self, file_paths: list[str]) -> None:
+    def fit(self, file_paths: list[pydantic.FilePath]) -> None:
         '''Fits the internal scaler to a specified list of files.'''
         for file_path in file_paths:
             data_frame = (
@@ -19,8 +20,8 @@ class ScalerManager:
                 .collect()
             )
             self.scaler.partial_fit(data_frame)
-
-    def fit_and_cache(self, file_paths: list[str]) -> None:
+    
+    def fit_and_cache(self, file_paths: list[pydantic.FilePath]) -> None:
         '''Fits the current scaler and stores it in the cache.'''
         self.fit(file_paths)
         self._cache.append(self.scaler)

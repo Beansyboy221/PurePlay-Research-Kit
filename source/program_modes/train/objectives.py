@@ -1,50 +1,43 @@
 import optuna.integration.pytorch_lightning
 import lightning.pytorch.callbacks
-import lightning.pytorch.loggers
 import lightning.pytorch.profilers
+import lightning.pytorch.loggers
 
-from globals.constants import searchspaces
 from utilities.app_utils import global_logger
-from ml_models import (
-    modelparams,
-    base_model
+from utilities.data_utils import (
+    datamodule,
+    scalers
 )
-from utilities.data_utils import datamodule
 from . import (
     callbacks, 
-    helpers
+    helpers,
+    train_config
 )
 
 def objective(
         trial: optuna.Trial, 
-        model_class: type[base_model.BaseModel], 
+        config: train_config.TrainConfig,
         data_module: datamodule.PurePlayDataModule,
-        save_dir: str,
-        manual_params: modelparams.ModelParams,
         kill_callback: callbacks.KillTrainingCallback
     ) -> float:
     '''Objective function for hyperparameter tuning.'''
     # Choose a scaler
-    scaler_name = manual_params.scaler_name or trial.suggest_categorical(
+    scaler_name = config.scaler_name or trial.suggest_categorical(
         name='scaler_name',
-        choices=[scaler.__name__ for scaler in searchspaces.SUPPORTED_SCALERS]
+        choices=[scaler.__name__ for scaler in scalers.SUPPORTED_SCALERS]
     )
     data_module.scaler_manager.load(scaler_name)
     
     # Set up model
-    model_params = helpers.suggest_model_params(
-        trial=trial,
-        data_params=data_module.data_params,
-        manual_params=manual_params
-    )
-    model = model_class(
+    model_params = helpers.suggest_model_params(trial, config)
+    model = config.model_class(
         model_params=model_params, 
         data_params=data_module.data_params, 
         scaler=data_module.scaler_manager.scaler
     )
     
     # Set up trainer
-    trial_directory = f'{save_dir}/trial_{trial.number}'
+    trial_directory = f'{config.save_dir}/trial_{trial.number}'
     trainer = lightning.Trainer(
         max_epochs=-1,
         precision='16-mixed',
@@ -54,8 +47,8 @@ def objective(
             kill_callback,
             lightning.pytorch.callbacks.EarlyStopping(
                 monitor='val_loss',
-                patience=searchspaces.EARLY_STOPPING_PATIENCE, 
-                min_delta=searchspaces.EARLY_STOPPING_DELTA,
+                patience=config.early_stopping_patience, 
+                min_delta=config.early_stopping_delta,
                 verbose=True
             ),
             lightning.pytorch.callbacks.ModelCheckpoint(
@@ -67,16 +60,16 @@ def objective(
                 monitor='val_loss'
             ),
             lightning.pytorch.callbacks.StochasticWeightAveraging(
-                swa_lrs=model_params.learning_rate * manual_params.swa_lr_factor or \
+                swa_lrs=model_params.learning_rate * config.swa_lr_factor or \
                 model_params.learning_rate * trial.suggest_float(
                     name='swa_lr_factor',
-                    low=searchspaces.SWA_LR_FACTOR_MIN,
-                    high=searchspaces.SWA_LR_FACTOR_MAX
+                    low=config.swa_lr_factor_min,
+                    high=config.swa_lr_factor_max
                 ), 
-                swa_epoch_start=manual_params.swa_epoch_start or trial.suggest_int(
+                swa_epoch_start=config.swa_epoch_start or trial.suggest_int(
                     name='swa_epoch_start',
-                    low=searchspaces.SWA_EPOCH_START_MIN,
-                    high=searchspaces.SWA_EPOCH_START_MAX
+                    low=config.swa_epoch_start_min,
+                    high=config.swa_epoch_start_max
                 )
             ),
             lightning.pytorch.callbacks.LearningRateMonitor(
@@ -90,7 +83,7 @@ def objective(
             filename='performance_log'
         ),
         logger=lightning.pytorch.loggers.TensorBoardLogger(
-            save_dir=save_dir, 
+            save_dir=config.save_dir, 
             version=f'trial_{trial.number}'
         )
     )

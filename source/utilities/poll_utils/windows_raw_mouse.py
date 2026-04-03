@@ -1,6 +1,11 @@
 import ctypes.wintypes
 import threading
 import win32gui
+import typing
+
+from . import bind_enums
+
+# Are there any external modules that do this?
 
 mouse_deltas = [0, 0]  # [delta_x, delta_y]
 mouse_lock = threading.Lock()

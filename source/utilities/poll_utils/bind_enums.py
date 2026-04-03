@@ -7,7 +7,7 @@ class BindGate(enum.StrEnum):
     NONE = enum.auto()
 
 #region Keyboard
-class KeyboardButton(enum.StrEnum): # MISSING QUOTATIONS
+class KeyBind(enum.StrEnum): # MISSING QUOTATIONS
     '''Enums for keys recognized by the Keyboard module.'''
     # Letters
     A = 'a'; B = 'b'; C = 'c'; D = 'd'; E = 'e'; F = 'f'; G = 'g'
@@ -93,9 +93,9 @@ class GamepadStick(enum.StrEnum):
 #endregion
 
 #region Bind Groups
-KeyBind = KeyboardButton
 MouseBind = MouseButton | MouseAnalog
+DigitalGamepadBind = GamepadButton | GamepadTrigger
+DigitalBind = KeyBind | MouseButton | DigitalGamepadBind
 GamepadBind = GamepadButton | GamepadTrigger | GamepadStick
-DigitalBind = KeyboardButton | MouseButton | GamepadButton | GamepadTrigger
-Bind = KeyboardButton | MouseButton | MouseAnalog | GamepadButton | GamepadTrigger | GamepadStick
+Bind = KeyBind | MouseButton | MouseAnalog | GamepadButton | GamepadTrigger | GamepadStick
 #endregion

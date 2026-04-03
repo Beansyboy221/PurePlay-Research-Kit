@@ -2,25 +2,18 @@ import optuna.visualization
 import logging
 import time
 
-from globals.constants import formats
-from source.utilities.app_utils import cuda_helpers
+from globals import formats
+from utilities import cuda_helpers
 from utilities.app_utils import global_logger
-from source.ml_models import modelparams
-from utilities.app_utils import (
-    config_helpers
-)
-from utilities.data_utils import (
-    datamodule,
-    dataparams
-)
+from utilities.data_utils import datamodule
 from . import (
     objectives,
     callbacks,
     helpers,
-    config
+    train_config
 )
 
-def train(config: config.ModeConfig, model_params: modelparams.ModelParams) -> None:
+def train(config: train_config.TrainConfig) -> None:
     '''
     Main entry point for training mode.
     Tunes and trains a model using optuna.
@@ -31,20 +24,15 @@ def train(config: config.ModeConfig, model_params: modelparams.ModelParams) -> N
 
     # Load and configure the data
     data_module = datamodule.PurePlayDataModule(
-        data_params=dataparams.DataParams(
-            whitelist=config.keyboard_whitelist + config.mouse_whitelist + config.gamepad_whitelist,
-            ignore_empty_polls=config.ignore_empty_polls,
-            polls_per_window=config.polls_per_window,
-            window_stride=config.window_stride
-        ),
+        data_params=config,
         batch_size=config.windows_per_batch,
         labeled_train_dirs={
-            config.training_file_dir: 'benign', # Currently only supports 2 classes
-            config.cheat_training_file_dir: 'cheat'
+            config.training_file_dir: int('benign'),
+            config.cheat_training_file_dir: int('cheat')
         },
         labeled_validation_dirs= {
-            config.validation_file_dir: 'benign',
-            config.cheat_validation_file_dir: 'cheat'
+            config.validation_file_dir: int('benign'),
+            config.cheat_validation_file_dir: int('cheat')
         }
     )
     if not config.windows_per_batch:
@@ -57,10 +45,8 @@ def train(config: config.ModeConfig, model_params: modelparams.ModelParams) -> N
     study.optimize(
         lambda trial: objectives.objective(
             trial=trial, 
-            model_class=config.model_class, 
+            config=config,
             data_module=data_module,
-            manual_params=model_params,
-            save_dir=config.save_dir, 
             kill_callback=kill_callback
         ),
         callbacks=[kill_callback],
@@ -82,15 +68,3 @@ def train(config: config.ModeConfig, model_params: modelparams.ModelParams) -> N
     figure = optuna.visualization.plot_param_importances(study)
     figure.write_html(f'{config.save_dir}/param_importances.html')
     global_logger.info('Report graphs saved.')
-
-if __name__ == '__main__':
-    try:
-        args = config_helpers.parse_args()
-        config_path, use_gui, log_level = config_helpers.get_global_configs(args)
-        global_logger.set_log_level(log_level)
-        config_dict = config_helpers.load_config_file(config_path)
-        config_dict = config_helpers.populate_missing_fields(config.ModeConfig, config_dict, use_gui)
-        config_object = config.ModeConfig.model_validate(config_dict)
-        train(config_object)
-    except Exception as e:
-        global_logger.exception(e)

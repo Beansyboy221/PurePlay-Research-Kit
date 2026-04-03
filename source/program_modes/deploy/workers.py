@@ -2,7 +2,7 @@ import threading
 import queue
 import torch
 
-from globals.constants import processors
+from globals import processors
 from source.ml_models import base_model
 from utilities.app_utils import global_logger
 

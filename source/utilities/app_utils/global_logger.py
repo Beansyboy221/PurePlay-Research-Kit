@@ -3,7 +3,7 @@ import enum
 import time
 import os
 
-from globals.constants import formats
+from globals import formats
 
 #region Enums
 class LogLevel(enum.StrEnum):

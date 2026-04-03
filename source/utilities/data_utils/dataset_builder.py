@@ -1,25 +1,26 @@
 import sklearn.utils.validation
+import pydantic
 import os
 
 from . import (
-    dataset,
     scaler_manager,
-    dataparams
+    data_params,
+    dataset
 )
 
 class DatasetBuilder:
     def __init__(
             self,
-            data_params: dataparams.DataParams,
+            data_params: data_params.DataParams,
             scaler_manager: scaler_manager.ScalerManager
         ):
         self.data_params = data_params
         self.scaler_manager = scaler_manager
 
-    def get_files_from_dir(self, directory: str) -> list[str]:
+    def get_files_from_dir(self, directory: str) -> list[pydantic.FilePath]:
         '''Returns a list of paths for all parquet files in the given directory.'''
         return [
-            os.path.join(directory, file_path)
+            pydantic.FilePath(os.path.join(directory, file_path))
             for file_path in os.listdir(directory)
             if os.path.splitext(file_path)[1].lower() == '.parquet'
         ]
@@ -42,7 +43,7 @@ class DatasetBuilder:
 
     def make_datasets_from_labeled_dirs(
             self,
-            labeled_dirs: dict[str, int]
+            labeled_dirs: dict[pydantic.DirectoryPath, int]
         ) -> list[dataset.FileDataset]:
         '''Creates datasets for all directories, assigning each its corresponding label.'''
         result = []
@@ -62,13 +63,13 @@ class DatasetBuilder:
                     if getattr(dataset.data_params, field) != reference_value:
                         raise ValueError(f'Mismatched property: {field} found in: {dataset.file_path}')
 
-        check_fields(dataparams.DataParams.model_fields, self.data_params, datasets_list)
+        check_fields(data_params.DataParams.model_fields, self.data_params, datasets_list)
 
         resolved_only_fields = (
-            dataparams.ResolvedDataParams.model_fields.keys() 
-            - dataparams.DataParams.model_fields.keys()
+            data_params.ResolvedDataParams.model_fields.keys() 
+            - data_params.DataParams.model_fields.keys()
         )
-        if isinstance(self.data_params, dataparams.ResolvedDataParams):
+        if isinstance(self.data_params, data_params.ResolvedDataParams):
             check_fields(resolved_only_fields, self.data_params, datasets_list)
         else:
             check_fields(resolved_only_fields, datasets_list[0].data_params, datasets_list[1:])

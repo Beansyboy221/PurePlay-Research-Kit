@@ -2,7 +2,6 @@ import pydantic
 
 class ModeConfig(pydantic.BaseModel):
     '''Fields expected for test mode to work properly.'''
-
     save_dir: pydantic.DirectoryPath = pydantic.Field(
         default='reports',
         description='The directory to save the output reports to.',
@@ -13,7 +12,7 @@ class ModeConfig(pydantic.BaseModel):
     model_file: pydantic.FilePath = pydantic.Field(
         description='The path to the model file.',
         validation_alias=pydantic.AliasPath('test', 'model_file'),
-        json_schema_extra={'file_types': [('Checkpoint Files', '*.ckpt'),]}
+        # Create custom checkpoint file path type
     )
     '''The path to the model file.'''
 

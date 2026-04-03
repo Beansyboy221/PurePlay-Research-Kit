@@ -1,6 +1,6 @@
 import tkinter.ttk
 
-from globals.constants import formats
+from globals import formats
 from utilities.app_utils import global_logger
 from source.prompters import base_prompter
 

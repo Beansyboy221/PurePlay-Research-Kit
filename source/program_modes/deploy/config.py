@@ -1,37 +1,18 @@
 import pydantic
 
-from globals.enums import binds
-from . import enums
+from utilities.poll_utils import (
+    poll_params,
+    bind_enums
+)
 
-class ModeConfig(pydantic.BaseModel):
+class ModeConfig(pydantic.BaseModel, poll_params.PollParams):
     '''Fields expected for deploy mode to work properly.'''
-    
-    kill_bind_list: frozenset[binds.DigitalBind] = pydantic.Field(
-        default_factory=lambda: [binds.DigitalBind.ESC],
-        min_items=1,
-        description='A set of binds that stop the program.',
-    )
-    '''A set of binds that stop the program.'''
-    
-    kill_bind_logic: binds.BindGate = pydantic.Field(
-        default=binds.BindGate.ANY,
-        description='Whether any or all of the kill binds must be held to stop.',
-    )
-    '''Whether any or all of the kill binds must be held to stop.'''
-
     model_file: pydantic.FilePath = pydantic.Field(
         description='The path to the model file.',
         validation_alias=pydantic.AliasPath('deploy', 'model_file'),
-        json_schema_extra={'file_types': [('Checkpoint Files', '*.ckpt'),]}
+        # Create new checkpoint file path type or use a validator
     )
     '''The path to the model file.'''
-
-    deployment_window_type: enums.WindowType = pydantic.Field(
-        default=enums.WindowType.TUMBLING,
-        description='The type of window to use for deployment.',
-        validation_alias=pydantic.AliasPath('deploy', 'deployment_window_type')
-    )
-    '''The type of window to use for deployment.'''
 
     write_to_file: bool = pydantic.Field(
         default=True,
@@ -47,16 +28,29 @@ class ModeConfig(pydantic.BaseModel):
     )
     '''The directory to save the data to.'''
 
-    capture_bind_list: frozenset[binds.DigitalBind] = pydantic.Field(
-        default_factory=lambda: [binds.DigitalBind.LEFT_MOUSE, binds.DigitalBind.RIGHT_MOUSE],
+    kill_bind_list: frozenset[bind_enums.DigitalBind] = pydantic.Field(
+        default_factory=lambda: [bind_enums.DigitalBind.ESC],
+        min_items=1,
+        description='A set of binds that stop the program.',
+    )
+    '''A set of binds that stop the program.'''
+    
+    kill_bind_logic: bind_enums.BindGate = pydantic.Field(
+        default=bind_enums.BindGate.ANY,
+        description='Whether any or all of the kill binds must be held to stop.',
+    )
+    '''Whether any or all of the kill binds must be held to stop.'''
+
+    capture_binds: frozenset[bind_enums.DigitalBind] = pydantic.Field(
+        default_factory=lambda: [bind_enums.DigitalBind.LEFT_MOUSE, bind_enums.DigitalBind.RIGHT_MOUSE],
         description='A set of binds that enable data capturing when held.',
-        validation_alias=pydantic.AliasPath('deploy', 'capture_bind_list')
+        validation_alias=pydantic.AliasPath('deploy', 'capture_binds')
     )
     '''A set of binds that enable data capturing when held.'''
 
-    capture_bind_logic: binds.BindGate = pydantic.Field(
-        default=binds.BindGate.ANY, 
+    capture_bind_gate: bind_enums.BindGate = pydantic.Field(
+        default=bind_enums.BindGate.ANY, 
         description='Whether any or all of the capture binds must be held to enable capturing.',
-        validation_alias=pydantic.AliasPath('deploy', 'capture_bind_logic')
+        validation_alias=pydantic.AliasPath('deploy', 'capture_bind_gate')
     )
     '''Whether any or all of the capture binds must be held to enable capturing.'''

@@ -5,23 +5,21 @@ import logging
 import queue
 import time
 
-from globals.constants import formats
-from globals.enums import binds
-from source.utilities.app_utils import cuda_helpers
-from utilities.app_utils import (
-    config_helpers,
-    global_logger
-)
-from utilities.data_utils import (
+from globals import formats
+from ml_models import model_utils
+from utilities import cuda_helpers
+from utilities.app_utils import global_logger
+from utilities.data_utils import async_writers
+from utilities.poll_utils import (
     windows_raw_mouse,
-    async_writers,
-    poll_helpers
+    poll_helpers, 
+    bind_enums
 )
-from source.ml_models import model_utils
+
 from . import (
     workers,
-    config,
-    enums
+    helpers,
+    config
 )
 
 def deploy(config: config.ModeConfig) -> None:
@@ -35,18 +33,20 @@ def deploy(config: config.ModeConfig) -> None:
     kill_event = threading.Event()
     
     # Analysis Thread
-    data_queue = queue.Queue()
-    window_buffer = collections.deque(
-        maxlen=2*model.data_params.polls_per_window
+    analysis_queue = queue.Queue()
+    window_ring_buffer = collections.deque(
+        maxlen=model.data_params.polls_per_window
     )
     analysis_thread = threading.Thread(
         target=workers.analysis_worker,
-        args=(model, data_queue, kill_event),
+        args=(model, analysis_queue, kill_event),
         daemon=True
     )
     analysis_thread.start()
 
     # Parquet Writer Thread
+    writer_queue = None
+    writer_thread = None
     if config.write_to_file:
         file_name = f'{config.save_dir}/inputs_{time.strftime(formats.TIMESTAMP_FORMAT)}.parquet'
         schema = pyarrow.schema(
@@ -58,17 +58,17 @@ def deploy(config: config.ModeConfig) -> None:
                 b'polling_rate': str(model.data_params.polling_rate).encode('utf-8')
             }
         )
-        data_queue = queue.Queue()
+        writer_queue = queue.Queue()
         writer_thread = threading.Thread(
             target=async_writers.parquet_writer_worker,
-            args=(file_name, schema, data_queue, kill_event),
+            args=(file_name, schema, writer_queue, kill_event),
             daemon=True
         )
         writer_thread.start()
 
     # Mouse Listener Thread
     mouse_listener_thread = None
-    if any(bind in model.data_params.mouse_whitelist for bind in binds.MouseAnalog):
+    if any(bind in model.data_params.mouse_whitelist for bind in bind_enums.MouseAnalog):
         mouse_listener_thread = threading.Thread(
             target=windows_raw_mouse.listen_for_mouse_movement, 
             args=(kill_event,),
@@ -79,35 +79,33 @@ def deploy(config: config.ModeConfig) -> None:
     poll_interval = 1.0 / model.data_params.polling_rate
     global_logger.info(f'Polling at {model.data_params.polling_rate}Hz (press {", ".join(config.kill_bind_list)} to stop)...')
 
+    total_polls = 0
     try:
-        while not poll_helpers.should_kill(
-            kill_binds=config.kill_bind_list, 
-            kill_bind_gate=config.kill_bind_logic
-        ):
+        while not poll_helpers.are_pressed(config.kill_bind_list, config.kill_bind_logic):
             time.sleep(poll_interval)
-            row = poll_helpers.poll_if_capturing(
-                config.capture_bind_list, 
-                config.capture_bind_logic, 
-                model.data_params.keyboard_whitelist,
-                model.data_params.mouse_whitelist,
-                model.data_params.gamepad_whitelist,
-                model.data_params.reset_mouse_on_release
-            )
-            if not row:
+            poll = helpers.try_poll(config)
+            if not poll:
                 continue
-
+            total_polls += 1
+            
             if config.write_to_file:
-                data_queue.put(row)
-            window_buffer.append(row)
-            if len(window_buffer) < model.data_params.polls_per_window:
+                writer_queue.put(poll)
+            
+            window_ring_buffer.append(poll)
+            if len(window_ring_buffer) < window_ring_buffer.maxlen:
                 continue
 
-            match config.deployment_window_type:
-                case enums.WindowType.TUMBLING:
-                    data_queue.put(list(window_buffer)[:model.data_params.polls_per_window])
-                    window_buffer.clear()
-                case enums.WindowType.SLIDING:
-                    data_queue.put(list(window_buffer)[-model.data_params.polls_per_window:])
+            not_in_stride = (total_polls - model.data_params.polls_per_window) % model.data_params.window_stride != 0
+            if not_in_stride:
+                continue
+
+            current_window = list(window_ring_buffer)
+            if model.data_params.ignore_empty_polls:
+                if not any(any(abs(val) > 1e-5 for val in poll) for poll in current_window):
+                    continue
+            
+            analysis_queue.put(current_window)
+
         global_logger.info('Kill bind(s) detected. Stopping...')
     finally:
         kill_event.set()
@@ -117,15 +115,3 @@ def deploy(config: config.ModeConfig) -> None:
         if config.write_to_file:
             writer_thread.join()
             global_logger.info(f'Data saved to {file_name}')
-
-if __name__ == '__main__':
-    try:
-        args = config_helpers.parse_args()
-        config_path, use_gui, log_level = config_helpers.get_global_configs(args)
-        global_logger.set_log_level(log_level)
-        config_dict = config_helpers.load_config_file(config_path)
-        config_dict = config_helpers.populate_missing_fields(config.ModeConfig, config_dict, use_gui)
-        config_object = config.ModeConfig.model_validate(config_dict)
-        deploy(config_object)
-    except Exception as e:
-        global_logger.exception(e)

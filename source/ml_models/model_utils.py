@@ -6,6 +6,8 @@ AVAILABLE_MODELS: dict[str, type[base_model.BaseModel]] = {}
 '''
 A registry of all loaded models.
 Use this to dynamically find models.
+Key: model class name
+Value: model class
 '''
 
 def register_model(model_class: type[base_model.BaseModel]) -> None:

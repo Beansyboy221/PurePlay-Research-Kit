@@ -1,37 +1,35 @@
 import lightning.pytorch.tuner
 import optuna
 
-from globals.constants import searchspaces
-from source.ml_models import base_model
+from ml_models import (
+    model_params,
+    components
+)
 from utilities.app_utils import global_logger
-from source.ml_models import (
-    modelparams
+from utilities.data_utils import datamodule
+from . import (
+    callbacks,
+    train_config
 )
-from utilities.data_utils import (
-    datamodule,
-    dataparams
-)
-from . import callbacks
 
 def tune_batch_size(
-        model_class: type[base_model.BaseModel], 
+        config: train_config.TrainConfig,
         data_module: datamodule.PurePlayDataModule,
         kill_callback: callbacks.KillTrainingCallback
     ) -> int:
     '''Automatically maximizes batch size for the worst-case model. Sets batch size in the data module.'''
     global_logger.info('Tuning batch size for hardware...')
-    model_params = modelparams.ModelParams(
-        hidden_layers=searchspaces.HIDDEN_LAYERS_MAX,
-        hidden_size=data_module.data_params.features_per_window,
-        latent_size=data_module.data_params.features_per_poll
-    )
-    model = model_class(
-        model_params=model_params, 
+    model = config.model_class(
+        model_params=model_params.ModelParams(
+            hidden_layers=config.hidden_layers_max,
+            hidden_size=data_module.data_params.features_per_window,
+            latent_size=data_module.data_params.features_per_poll
+        ),
         data_params=data_module.data_params, 
         scaler=data_module.scaler_manager.scaler
     )
     trainer = lightning.Trainer(
-        max_epochs=searchspaces.BATCH_SIZE_TUNE_EPOCHS, 
+        max_epochs=config.batch_size_tune_epochs, 
         logger=False, 
         enable_model_summary=False, 
         callbacks=kill_callback
@@ -45,65 +43,64 @@ def tune_batch_size(
 
 def suggest_model_params(
         trial: optuna.Trial, 
-        data_params: dataparams.DataParams,
-        manual_params: modelparams.ModelParams | None = None
-    ) -> modelparams.ModelParams:
+        config: train_config.TrainConfig,
+    ) -> model_params.ModelParams:
     '''Uses optuna to pick a set of hyperparameters for the model.'''
-    hidden_size = manual_params.hidden_size or trial.suggest_int(
+    hidden_size = config.hidden_size or trial.suggest_int(
         name='hidden_size',
-        low=searchspaces.HIDDEN_SIZE_MIN, 
-        high=data_params.features_per_window
+        low=config.hidden_size_min, 
+        high=config.features_per_window # Why isn't this highlighting?
     )
 
-    optimizer = manual_params.optimizer or trial.suggest_categorical(
+    optimizer = config.optimizer or trial.suggest_categorical(
         name='optimizer', 
-        choices=searchspaces.SUPPORTED_OPTIMIZERS
+        choices=components.SUPPORTED_OPTIMIZERS
     )
-    scheduler = manual_params.scheduler or trial.suggest_categorical(
+    scheduler = config.scheduler or trial.suggest_categorical(
         name='scheduler', 
-        choices=[None] + searchspaces.SUPPORTED_SCHEDULERS
+        choices=[None] + components.SUPPORTED_SCHEDULERS
     )
 
     weight_decay = None
     if hasattr(optimizer, 'weight_decay'):
-        weight_decay = manual_params.weight_decay or trial.suggest_float(
+        weight_decay = config.weight_decay or trial.suggest_float(
             name='weight_decay',
-            low=searchspaces.WEIGHT_DECAY_MIN,
-            high=searchspaces.WEIGHT_DECAY_MAX,
+            low=config.weight_decay_min,
+            high=config.weight_decay_max,
             log=True
         )
     
     momentum = None
     if hasattr(optimizer, 'momentum'):
-        momentum = manual_params.momentum or trial.suggest_float(
+        momentum = config.momentum or trial.suggest_float(
             name='momentum',
-            low=searchspaces.MOMENTUM_MIN,
-            high=searchspaces.MOMENTUM_MAX
+            low=config.momentum_min,
+            high=config.momentum_max
         )
 
-    return modelparams.ModelParams(
-        hidden_layers=manual_params.hidden_layers or trial.suggest_int(   
+    return model_params.ModelParams(
+        hidden_layers=config.hidden_layers or trial.suggest_int(   
             name='hidden_layers', 
-            low=searchspaces.HIDDEN_LAYERS_MIN, 
-            high=searchspaces.HIDDEN_LAYERS_MAX
+            low=config.hidden_layers_min, 
+            high=config.hidden_layers_max
         ),
         hidden_size=hidden_size,
-        latent_size=manual_params.latent_size or trial.suggest_int(
+        latent_size=config.latent_size or trial.suggest_int(
             name='latent_size', 
-            low=searchspaces.LATENT_SIZE_MIN, 
+            low=config.latent_size_min, 
             high=hidden_size
         ),
-        dropout=manual_params.dropout or trial.suggest_float(
+        dropout=config.dropout or trial.suggest_float(
             name='dropout', 
-            low=searchspaces.DROPOUT_MIN, 
-            high=searchspaces.DROPOUT_MAX
+            low=config.dropout_min, 
+            high=config.dropout_max
         ),
         optimizer=optimizer,
         scheduler=scheduler,
-        learning_rate=manual_params.learning_rate or trial.suggest_float(
+        learning_rate=config.learning_rate or trial.suggest_float(
             name='learning_rate', 
-            low=searchspaces.LEARNING_RATE_MIN, 
-            high=searchspaces.LEARNING_RATE_MAX, 
+            low=config.learning_rate_min, 
+            high=config.learning_rate_max, 
             log=True
         ),
         weight_decay=weight_decay,

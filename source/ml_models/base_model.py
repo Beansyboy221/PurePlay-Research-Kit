@@ -5,10 +5,11 @@ import torch
 import enum
 import abc
 
-from utilities.data_utils import dataparams
+from utilities.data_utils import data_params
 from utilities.mixins import on_init_mixin
+from program_modes.train import search_spaces # Bad
 
-from . import modelparams
+from . import model_params
 
 class TrainingType(enum.StrEnum):
     SUPERVISED = enum.auto()
@@ -31,9 +32,9 @@ class BaseModel(
 
     def __init__(
             self, 
-            model_params: modelparams.ModelParams, 
-            data_params: dataparams.ResolvedDataParams, 
-            scaler: sklearn.base.TransformerMixin, # Could use better type checking.
+            model_params: model_params.ModelParams, 
+            data_params: data_params.ResolvedDataParams, 
+            scaler: sklearn.base.TransformerMixin, # Could use better type checking. Is there any reason to pass the whole training config?
             *args, 
             **kwargs
         ):
@@ -45,7 +46,8 @@ class BaseModel(
         self.save_hyperparameters({
             'model_class': self.__class__.__name__,
             'model_params': model_params.model_dump(), 
-            'data_params': data_params.model_dump()
+            'data_params': data_params.model_dump(),
+            'scaler_name': scaler.__class__.__name__
         })
 
         self._is_configured = False

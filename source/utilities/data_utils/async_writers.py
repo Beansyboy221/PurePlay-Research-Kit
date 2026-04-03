@@ -4,6 +4,9 @@ import pyarrow
 import queue
 import time
 
+# Use a dynamic writer system so it can use different file types.
+# Then this can just be called async_batch_writer.
+
 def parquet_writer_worker(
         file_name: str, 
         schema: pyarrow.schema, 
