@@ -6,53 +6,27 @@ class TuningOverrides(pydantic.BaseModel):
     model_class: base_model.BaseModel | None = pydantic.Field(
         default=None,
         # validate that the model is concrete
-        description='The model class name to use for training.',
-        validation_alias=pydantic.AliasPath('train.overrides', 'model_class'),
     )
     '''The model class name to use for training.'''
 
     windows_per_batch: int | None = pydantic.Field(
-        default=None,
+        default=None, 
         multiple_of=2,
-        ge=16,
-        description='The number of windows in each batch.',
-        validation_alias=pydantic.AliasPath('train.overrides', 'windows_per_batch')
+        ge=16
     )
     '''The number of windows in each batch.'''
     
-    scaler_name: str | None = pydantic.Field(
-        default=None,
-        description='The name of the data scaler to use.',
-        validation_alias=pydantic.AliasPath('train.overrides', 'scaler_name')
-    )
+    scaler_name: str | None = pydantic.Field(default=None)
     '''The name of the data scaler to use.'''
 
-    early_stopping_patience: int = pydantic.Field(
-        default=20,
-        ge=1,
-        description='The number of epochs to wait for improvement before stopping.',
-        validation_alias=pydantic.AliasPath('train.overrides', 'early_stopping_patience')
-    )
+    early_stopping_patience: int | None = pydantic.Field(default=None, ge=1)
     '''The number of epochs to wait for improvement before stopping.'''
 
-    early_stopping_delta: float = pydantic.Field(
-        default=1e-4,
-        ge=0.0,
-        description='The minimum change in validation loss to qualify as improvement.',
-        validation_alias=pydantic.AliasPath('train.overrides', 'early_stopping_delta')
-    )
+    early_stopping_delta: float | None = pydantic.Field(default=None, ge=0.0)
     '''The minimum change in validation loss to qualify as improvement.'''
 
-    swa_epoch_start: int | None = pydantic.Field(
-        default=None,
-        description='The epoch at which stochastic weight averaging starts.',
-        validation_alias=pydantic.AliasPath('train.overrides', 'swa_epoch_start')
-    )
+    swa_epoch_start: int | None = pydantic.Field(default=None)
     '''The epoch at which stochastic weight averaging starts.'''
 
-    swa_lr_factor: float | None = pydantic.Field(
-        default=None,
-        description='The factor by which the learning rate is multiplied.',
-        validation_alias=pydantic.AliasPath('train.overrides', 'swa_lr_factor')
-    )
+    swa_lr_factor: float | None = pydantic.Field(default=None)
     '''The factor by which the learning rate is multiplied.'''

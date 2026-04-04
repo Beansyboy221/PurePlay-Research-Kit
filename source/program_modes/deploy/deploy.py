@@ -15,14 +15,12 @@ from utilities.poll_utils import (
     poll_helpers, 
     bind_enums
 )
-
 from . import (
-    workers,
-    helpers,
-    config
+    deploy_config,
+    workers
 )
 
-def deploy(config: config.ModeConfig) -> None:
+def deploy(config: deploy_config.DeployConfig) -> None:
     '''
     Main entry point for deployment mode.
     Performs live analysis on input data using a pre-trained model.
@@ -83,7 +81,11 @@ def deploy(config: config.ModeConfig) -> None:
     try:
         while not poll_helpers.are_pressed(config.kill_bind_list, config.kill_bind_logic):
             time.sleep(poll_interval)
-            poll = helpers.try_poll(config)
+            poll = poll_helpers.poll_if_capturing(
+                capture_binds=config.capture_binds, 
+                capture_bind_gate=config.capture_bind_gate,
+                data_params=model.data_params
+            )
             if not poll:
                 continue
             total_polls += 1

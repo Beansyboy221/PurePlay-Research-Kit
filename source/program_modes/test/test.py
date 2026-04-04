@@ -8,10 +8,9 @@ from utilities.data_utils import (
     datamodule,
     scalers
 )
+from . import test_config
 
-from . import config
-
-def test(config: config.ModeConfig) -> None:
+def test(config: test_config.TestConfig) -> None:
     '''
     Main entry point for test mode.
     Performs static analysis on selected data files using a pre-trained model.

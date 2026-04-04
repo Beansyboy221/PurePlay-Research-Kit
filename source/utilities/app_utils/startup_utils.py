@@ -4,16 +4,16 @@ import pydantic
 from prompters import (
     prompter_utils,
     base_prompter
-)
+	)
 
 from . import (
     startup_config,
     global_logger
-)
+	)
 
 def parse_args() -> argparse.Namespace:
     '''Parses command-line arguments.'''
-    parser = argparse.ArgumentParser(description='PurePlay-Research-Kit')
+    parser = argparse.ArgumentParser()
     # Can these be easily auto generated from the commandline_args?
     parser.add_argument(
         '-c', '--config',

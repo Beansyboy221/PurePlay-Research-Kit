@@ -51,7 +51,7 @@ _logger = logging.getLogger('PurePlay')
 logging.basicConfig(
     level=logging.INFO,
     format=formats.LOG_FORMAT
-)
+	)
 
 os.makedirs('logs', exist_ok=True)
 _file_handler = logging.FileHandler(f'logs/{time.strftime(formats.TIMESTAMP_FORMAT)}.log')

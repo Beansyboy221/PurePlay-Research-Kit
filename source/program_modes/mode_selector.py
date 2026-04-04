@@ -1,11 +1,8 @@
-import typing
-
 from prompters import (
     prompter_utils,
     base_prompter
 )
 from utilities.app_utils import startup_utils
-
 from . import (
     mode_utils,
     base_mode

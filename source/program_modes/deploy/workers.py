@@ -10,7 +10,6 @@ from utilities.app_utils import global_logger
 def analysis_worker(
         model: base_model.BaseModel,
         data_queue: queue.Queue,
-        
         kill_event: threading.Event
     ) -> None:
     '''Worker function to perform live analysis on input windows.'''

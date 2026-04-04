@@ -4,11 +4,12 @@ import XInput
 import mouse
 import math
 
+from utilities.data_utils import data_params
 from . import (
     windows_raw_mouse,
     xinput_maps,
     bind_enums
-)
+	)
 
 # This file needs to be as optimized as possible. (C++?)
 
@@ -102,4 +103,31 @@ def are_pressed(
             return all(pressed_binds)
         case bind_enums.BindGate.NONE:
             return not any(pressed_binds)
+        
+def poll_if_capturing(
+        capture_binds: list[bind_enums.DigitalBind],
+        capture_bind_gate: bind_enums.BindGate,
+        data_params: data_params.ResolvedDataParams
+    ) -> list | None:
+    '''Polls input devices if capture bind(s) are pressed.'''
+    if not any(data_params.whitelist):
+        return None
+
+    capturing = are_pressed(capture_binds, capture_bind_gate)
+    if not capturing:
+        if data_params.reset_mouse_on_release:
+            with windows_raw_mouse.mouse_lock:
+                windows_raw_mouse.mouse_deltas[0] = 0
+                windows_raw_mouse.mouse_deltas[1] = 0
+        return None
+    
+    row = [
+        *poll_keyboard(data_params.keyboard_whitelist),
+        *poll_mouse(data_params.mouse_whitelist),
+        *poll_gamepad(data_params.gamepad_whitelist)
+    ]
+    if data_params.ignore_empty_polls and not any(row):
+        return None
+    
+    return row
 #endregion

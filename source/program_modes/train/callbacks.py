@@ -5,7 +5,7 @@ from utilities.app_utils import global_logger
 from utilities.poll_utils import (
     poll_helpers,
     bind_enums
-)
+	)
 
 class KillTrainingCallback(lightning.pytorch.callbacks.Callback):
     '''Kills current optuna study/trial upon pressing kill bind.'''

@@ -11,13 +11,9 @@ from utilities.poll_utils import (
     poll_helpers, 
     bind_enums
 )
+from . import collect_config
 
-from . import (
-    helpers,
-    config
-)
-
-def collect(config: config.ModeConfig) -> None:
+def collect(config: collect_config.CollectConfig) -> None:
     '''
     Main entry point for collect mode.
     Collects input data and saves it to a Parquet file.
@@ -56,9 +52,13 @@ def collect(config: config.ModeConfig) -> None:
 
     try:
         while not poll_helpers.are_pressed(config.kill_bind_list, config.kill_bind_logic):
-            row = helpers.try_poll(config)
-            if row:
-                data_queue.put(row)
+            poll = poll_helpers.poll_if_capturing(
+                capture_binds=config.capture_binds, 
+                capture_bind_gate=config.capture_bind_gate,
+                data_params=config
+            )
+            if poll:
+                data_queue.put(poll)
             time.sleep(poll_interval)
         global_logger.info('Kill bind(s) detected. Stopping...')
     finally:
