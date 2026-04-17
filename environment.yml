@@ -9,6 +9,7 @@ dependencies:
 
   # --- Conda Packages ---
   - pydantic
+  - pydantic-settings
   - pywin32
   - pyarrow
   - pyarrow-stubs
@@ -22,11 +23,11 @@ dependencies:
   - optuna-integration
   - plotly
   - scikit-learn
-  - sk2torch         # Replace by hummingbird-ml or nvtabular for >=3.14
   - blinker
 
   # --- Pip Packages ---
   - pip:
+    - sk2torch       # Replace by hummingbird-ml or nvtabular for >=3.14
     - XInput-Python  # Replace when updating to >=3.14
     - keyboard       # This should ideally mean I can get rid
     - mouse          # of bind enums and windows_raw_mouse.

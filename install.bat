@@ -78,7 +78,7 @@ if %errorlevel%==0 (
         )
     ) else (
         echo Updating existing environment from %ENV_YML%...
-        call "%CONDA_PATH%" env update --file "%ENV_YML%" --prune -y || (
+        call "%CONDA_PATH%" env update --file "%ENV_YML%" --prune || (
             call :REPORT_ERROR "Failed to update the environment '%ENV_NAME%' from %ENV_YML%."
         )
     )
