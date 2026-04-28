@@ -3,20 +3,22 @@ import lightning.pytorch.callbacks
 import lightning.pytorch.profilers
 import lightning.pytorch.loggers
 
-from globals import logger
-from data.processing import (
+from misc import logging_utils
+from preprocessing import (
     datamodule,
     scalers
 )
 from . import (
-    train_config,
+    config,
     callbacks,
     helpers
 )
 
+logger = logging_utils.get_logger()
+
 def objective(
         trial: optuna.Trial, 
-        config: train_config.TrainConfig,
+        config: config.TrainConfig,
         data_module: datamodule.PurePlayDataModule,
         kill_callback: callbacks.KillTrainingCallback
     ) -> float:
@@ -26,14 +28,14 @@ def objective(
         name='scaler_name',
         choices=[scaler.__name__ for scaler in scalers.SCALER_CACHE]
     )
-    data_module.scaler_manager.load(scaler_name)
+    data_module.load(scaler_name)
     
     # Set up model
     model_params = helpers.suggest_model_params(trial, config)
     model = config.model_class(
         model_params=model_params, 
-        data_params=data_module.data_params, 
-        scaler=data_module.scaler_manager.scaler
+        data_params=data_module.params, 
+        scaler=data_module.scaler
     )
     
     # Set up trainer

@@ -2,30 +2,30 @@ import lightning.pytorch.tuner
 import optuna
 
 from models import (
-    model_params,
     components
 )
-from globals import logger
-from data.processing import datamodule
+from misc import logger
+from preprocessing import datamodule
+from models import params
 from . import (
-    train_config,
+    config,
     callbacks
 )
 
 def tune_batch_size(
-        config: train_config.TrainConfig,
+        config: config.TrainConfig,
         data_module: datamodule.PurePlayDataModule,
         kill_callback: callbacks.KillTrainingCallback
     ) -> int:
     '''Automatically maximizes batch size for the worst-case model. Sets batch size in the data module.'''
     logger.info('Tuning batch size for hardware...')
     model = config.model_class(
-        model_params=model_params.ModelParams(
+        model_params=params.ModelParams(
             hidden_layers=config.hidden_layers_max,
-            hidden_size=data_module.data_params.features_per_window,
-            latent_size=data_module.data_params.features_per_poll
+            hidden_size=data_module.params.features_per_window,
+            latent_size=data_module.params.features_per_poll
         ),
-        data_params=data_module.data_params, 
+        data_params=data_module.params, 
         scaler=data_module.scaler_manager.scaler
     )
     trainer = lightning.Trainer(
@@ -43,8 +43,8 @@ def tune_batch_size(
 
 def suggest_model_params(
         trial: optuna.Trial, 
-        config: train_config.TrainConfig,
-    ) -> model_params.ModelParams:
+        config: config.TrainConfig,
+    ) -> params.ModelParams:
     '''Uses optuna to pick a set of hyperparameters for the model.'''
     hidden_size = config.hidden_size or trial.suggest_int(
         name='hidden_size',
@@ -78,7 +78,7 @@ def suggest_model_params(
             high=config.momentum_max
         )
 
-    return model_params.ModelParams(
+    return params.ModelParams(
         hidden_layers=config.hidden_layers or trial.suggest_int(   
             name='hidden_layers', 
             low=config.hidden_layers_min, 

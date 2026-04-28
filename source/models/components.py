@@ -1,4 +1,8 @@
+import pydantic
+import typing
 import torch
+
+from misc import validators
 
 SUPPORTED_OPTIMIZERS: frozenset[type[torch.optim.Optimizer]] = (
     torch.optim.Adafactor,
@@ -33,3 +37,13 @@ SUPPORTED_SCHEDULERS: frozenset[type[torch.optim.lr_scheduler.LRScheduler]] = (
     torch.optim.lr_scheduler.OneCycleLR,
     torch.optim.lr_scheduler.PolynomialLR 
 )
+
+SupportedOptimizer = typing.Annotated[
+    typing.Type[torch.optim.Optimizer], 
+    pydantic.AfterValidator(lambda optimizer: validators.validate_in_collection(optimizer, SUPPORTED_OPTIMIZERS))
+]
+
+SupportedScheduler = typing.Annotated[
+    typing.Type[torch.optim.lr_scheduler.LRScheduler], 
+    pydantic.AfterValidator(lambda scheduler: validators.validate_in_collection(scheduler, SUPPORTED_SCHEDULERS))
+]

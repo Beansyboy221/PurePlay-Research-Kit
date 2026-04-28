@@ -1,12 +1,12 @@
 import pydantic
 
-from models import base_model
+from models import base
 
 class TuningOverrides(pydantic.BaseModel):
-    model_class: base_model.BaseModel | None = pydantic.Field(
-        default=None,
-        # validate that the model is concrete
-    )
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+    
+    # Validate is concrete
+    model_class: base.BaseModel | None = pydantic.Field(default=None)
     '''The model class name to use for training.'''
 
     windows_per_batch: int | None = pydantic.Field(

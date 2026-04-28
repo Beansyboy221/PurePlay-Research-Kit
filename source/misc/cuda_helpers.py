@@ -1,6 +1,8 @@
 import torch
 
-from source.globals import logger
+from misc import logging_utils
+
+logger = logging_utils.get_logger()
 
 def optimize_cuda_for_hardware() -> None:
     '''Applies CUDA optimizations based on the detected GPU architecture.'''
@@ -16,6 +18,7 @@ def optimize_cuda_for_hardware() -> None:
     has_tf32 = major >= 8
     has_bf16 = major >= 8
 
+    logger.info(f'Attempting to optimize CUDA for hardware...')
     logger.info(f'CUDA device: {device_name} (sm_{major}{minor})')
     logger.info(f'Tensor Cores: {has_tensor_cores} | TF32/BF16: {has_tf32}')
 

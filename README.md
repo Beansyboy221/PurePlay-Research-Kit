@@ -1,6 +1,6 @@
 # PurePlay Research Kit (PPRK)
 
-**Free, Open-Source Tool for Anti-Cheat Research and Development**
+**Free, Open-Source Tool for Anti-Cheat Research and Development**  
 
 ## Overview
 
@@ -31,11 +31,12 @@ Unlike traditional signature-based anti-cheats, PPRK provides the ability to ide
    Be careful to follow the instructions in the console window.
 
    ```sh
-   ./install.bat
+   ./scripts/install.bat [Windows]
+   ./scripts/install.sh  [Linux/MacOS]
    ```
 
 3. **Configure your settings**:
-   Read the [Configuration Guide](https://github.com/Beanthief/PurePlay-Research-Kit/tree/main/docs/CONFIG.md) to better understand your options.
+   Read the [Configuration Guide](https://github.com/Beansyboy221/PurePlay-Research-Kit/tree/main/docs/config.md) to better understand your options.
 
 4. **Start the application**:
 

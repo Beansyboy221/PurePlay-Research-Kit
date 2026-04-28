@@ -1,28 +1,33 @@
 import lightning.pytorch.callbacks
 import optuna
 
-from source.data.polling import bind_enums
-from source.globals import logger
-from source.data.polling import (
-    poll_helpers
+from misc import (
+    validated_types,
+    logging_utils
 )
+from polling import (
+    unified_helpers
+)
+from polling import base_bind
+
+logger = logging_utils.get_logger()
 
 class KillTrainingCallback(lightning.pytorch.callbacks.Callback):
     '''Kills current optuna study/trial upon pressing kill bind.'''
     def __init__(
             self, 
-            kill_binds: list[bind_enums.DigitalBind], 
-            kill_bind_gate: bind_enums.BindGate = bind_enums.BindGate.ANY
+            kill_binds: list[base_bind.Bind], 
+            kill_bind_gate: validated_types.GateCallable = any
         ):
         super().__init__()
         self.kill_binds = kill_binds
         self.kill_bind_gate = kill_bind_gate
         self.stopping_flag = False
 
-    def on_train_batch_end(self, trainer: lightning.Trainer, *args, **kwargs):
+    def on_train_batch_end(self, trainer: lightning.Trainer):
         '''Pytorch Lightning hook to stop mid-trial.'''
         if not self.stopping_flag:
-            if not poll_helpers.are_pressed(self.kill_binds, self.kill_bind_gate):
+            if not unified_helpers.are_active(self.kill_binds, self.kill_bind_gate):
                 return
             logger.info('Kill bind(s) detected. Stopping...')
             self.stopping_flag = True

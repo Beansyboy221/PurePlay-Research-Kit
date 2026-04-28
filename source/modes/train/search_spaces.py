@@ -1,13 +1,13 @@
 import pydantic
 
 from models import (
-    model_registry,
-    base_model
+    helpers,
+    base
 )
 
 class SearchSpaces(pydantic.BaseModel):
-    model_classes: list[type[base_model.BaseModel]] = pydantic.Field(
-        default_factory=model_registry.AVAILABLE_MODELS.values()
+    model_classes: list[type[base.BaseModel]] = pydantic.Field(
+        default_factory=helpers.AVAILABLE_MODELS.values()
     )
     '''A list of model class names to search over.'''
 
