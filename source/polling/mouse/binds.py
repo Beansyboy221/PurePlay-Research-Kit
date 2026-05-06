@@ -3,27 +3,26 @@ import sys
 
 from polling import base_bind
 
+
 class Bind(base_bind.Bind):
     pass
+
 
 class Button(Bind):
     pass
 
+
 class Move(Bind):
     pass
 
-class Buttons:
-    MOUSE_LEFT   = Button(pynput.mouse.Button.left)
-    MOUSE_RIGHT  = Button(pynput.mouse.Button.right)
-    MOUSE_MIDDLE = Button(pynput.mouse.Button.middle)
-    if sys.platform == 'win32':
-        MOUSE_4 = Button(pynput.mouse.Button.x1)
-        MOUSE_5 = Button(pynput.mouse.Button.x2)
 
-class Moves:
-    DIRECTION_X = Move('direction_x')
-    DIRECTION_Y = Move('direction_y')
-    VELOCITY    = Move('velocity')
+MOUSE_LEFT = Button("LEFT_MOUSE", pynput.mouse.Button.left)
+MOUSE_RIGHT = Button("RIGHT_MOUSE", pynput.mouse.Button.right)
+MOUSE_MIDDLE = Button("MIDDLE_MOUSE", pynput.mouse.Button.middle)
+if sys.platform == "win32":
+    MOUSE_4 = Button("MOUSE_4", pynput.mouse.Button.x1)
+    MOUSE_5 = Button("MOUSE_5", pynput.mouse.Button.x2)
 
-class Binds(Buttons, Moves):
-    pass
+DIRECTION_X = Move("MOUSE_X", "direction_x")
+DIRECTION_Y = Move("MOUSE_Y", "direction_y")
+VELOCITY = Move("MOUSE_VELOCITY", "velocity")

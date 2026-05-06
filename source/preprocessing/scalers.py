@@ -1,7 +1,10 @@
+"""Scalers used by PurePlay."""
+
 import sklearn.preprocessing
 import typing
 import pandas
 import numpy
+
 
 @typing.runtime_checkable
 class SupportedScaler(typing.Protocol):
@@ -9,10 +12,11 @@ class SupportedScaler(typing.Protocol):
     def partial_fit(self, X) -> typing.Self: ...
     def transform(self, X) -> typing.Union[numpy.ndarray, pandas.DataFrame]: ...
 
+
 SCALER_CACHE: frozenset[SupportedScaler] = (
     sklearn.preprocessing.StandardScaler(),
     sklearn.preprocessing.StandardScaler(with_mean=False),
     sklearn.preprocessing.MinMaxScaler(),
     sklearn.preprocessing.RobustScaler(),
-    sklearn.preprocessing.MaxAbsScaler()
+    sklearn.preprocessing.MaxAbsScaler(),
 )

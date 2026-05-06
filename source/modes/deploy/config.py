@@ -1,29 +1,27 @@
 import pydantic
+import typing
 
-from misc import validated_types
+from misc import validated_types, validators
 import modes
-from polling import (
-    unified_binds,
-    base_bind,
-    params
-)
+from polling import params
 
-class DeployConfig(modes.ModeConfig, params.PollParams):
-    '''Fields expected for deploy mode to work properly.'''
+
+class DeployConfig(modes.ModeConfig, params.PollParams, params.KillBindMixin):
+    """Fields expected for deploy mode to work properly."""
+
     model_file: validated_types.CheckpointPath
-    '''The path to the model file.'''
+    """The path to the model file."""
 
     write_to_file: bool = pydantic.Field(default=True)
-    '''Whether or not to write the data to a file.'''
+    """Whether or not to write the data to a file."""
 
-    save_dir: pydantic.DirectoryPath = pydantic.Field(default='data')
-    '''The directory to save the data to.'''
+    save_dir: pydantic.DirectoryPath = pydantic.Field(default="data")
+    """The directory to save the data to."""
 
-    kill_bind_list: frozenset[base_bind.Bind] = pydantic.Field(
-        default=frozenset([unified_binds.Binds.ESC]),
-        min_length=1
-    )
-    '''A set of binds that stop the program when activated.'''
-    
-    kill_bind_logic: validated_types.GateCallable = pydantic.Field(default=any)
-    '''Whether any or all of the kill binds must be held to stop.'''
+    @pydantic.model_validator(mode="after")
+    def validate_kill_binds(self) -> typing.Self:
+        validators.validate_set_conflict(
+            set_a=self.whitelist,
+            set_b=self.kill_binds,
+            msg="Whitelist cannot contain kill binds.",
+        )

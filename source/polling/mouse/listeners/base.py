@@ -1,6 +1,7 @@
 import threading
 import abc
 
+
 class BaseMouseListener(abc.ABC):
     def __init__(self):
         self._delta_x = 0
@@ -11,28 +12,28 @@ class BaseMouseListener(abc.ABC):
 
     @abc.abstractmethod
     def _run(self):
-        '''Platform-specific event loop logic.'''
+        """Platform-specific event loop logic."""
         pass
 
     @abc.abstractmethod
     def stop(self):
-        '''Platform-specific teardown logic.'''
+        """Platform-specific teardown logic."""
         pass
 
     def start(self):
-        '''Universal start logic.'''
+        """Universal start logic."""
         if self._thread and self._thread.is_alive():
             return
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
     def get_deltas(self) -> tuple[float, float]:
-        '''Retrieves mouse deltas.'''
+        """Retrieves mouse deltas."""
         with self._lock:
             return (self._delta_x, self._delta_y)
 
     def reset_deltas(self) -> None:
-        '''Resets mouse deltas to zero.'''
+        """Resets mouse deltas to zero."""
         with self._lock:
             self._delta_x, self._delta_y = 0, 0
 

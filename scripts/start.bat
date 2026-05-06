@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 
 echo Running PurePlay...
-pixi run --manifest-path ..\pixi.toml gui-app || (
+pixi run --manifest-path ..\pixi.toml cli-app || (
     call :REPORT_ERROR "An error occurred in the application."
 )
 

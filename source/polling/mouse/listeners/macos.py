@@ -2,6 +2,7 @@ import Quartz
 
 from . import base
 
+
 class RawMouseListener(base.BaseMouseListener):
     def __init__(self):
         super().__init__()
@@ -9,8 +10,12 @@ class RawMouseListener(base.BaseMouseListener):
         self._last_pos = None
 
     def _event_callback(self, proxy, type_, event, refcon):
-        if type_ in (Quartz.kCGEventMouseMoved, Quartz.kCGEventLeftMouseDragged, 
-                        Quartz.kCGEventRightMouseDragged, Quartz.kCGEventOtherMouseDragged):
+        if type_ in (
+            Quartz.kCGEventMouseMoved,
+            Quartz.kCGEventLeftMouseDragged,
+            Quartz.kCGEventRightMouseDragged,
+            Quartz.kCGEventOtherMouseDragged,
+        ):
             pos = Quartz.CGEventGetLocation(event)
             with self._lock:
                 if self._last_pos:
@@ -20,10 +25,16 @@ class RawMouseListener(base.BaseMouseListener):
         return event
 
     def _run(self):
-        tap = Quartz.CGEventTapCreate(Quartz.kCGHIDEventTap, Quartz.kCGEventTapOptionListenOnly, 
-                                        Quartz.kCGEventTapOptionDefault, Quartz.kCGEventMaskForAllEvents, 
-                                        self._event_callback, None)
-        if not tap: return
+        tap = Quartz.CGEventTapCreate(
+            Quartz.kCGHIDEventTap,
+            Quartz.kCGEventTapOptionListenOnly,
+            Quartz.kCGEventTapOptionDefault,
+            Quartz.kCGEventMaskForAllEvents,
+            self._event_callback,
+            None,
+        )
+        if not tap:
+            return
         Quartz.CGEventTapEnable(tap, True)
         self._run_loop = Quartz.CFRunLoopGetCurrent()
         source = Quartz.CFMachPortCreateRunLoopSource(None, tap, 0)
