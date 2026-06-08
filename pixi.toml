@@ -8,21 +8,18 @@ platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 [dependencies]
 python = "==3.11"
 blinker = "*"
-pydantic = "*"
-pydantic-settings = "*"
-pynput = "*"
-pygame = "*"
 pyarrow = "*"
 pyarrow-stubs = "*"
 pandas = "*"
 polars = "*"
-pytorch = "*"
-lightning = "*"
 optuna = "*"
 optuna-integration = "*"
 scikit-learn = "*"
 tensorboard = "*"
 plotly = "*"
+beanml = "*"
+beaninput = "*"
+beanapp = "*"
 
 [target.win-64.dependencies]
 pywin32 = "*"
@@ -38,5 +35,4 @@ cudnn = "*"
 sk2torch = "*"  # Replace with hummingbird-ml or nvtabular for >=3.14?
 
 [tasks]
-gui-app = "python source/main.py -use_gui"
-cli-app = "python source/main.py"
+app = "python source/main.py"
