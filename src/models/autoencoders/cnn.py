@@ -1,9 +1,9 @@
 import torch
 
-from base import AutoencoderBase
+from base import Autoencoder
 
 
-class CNNAutoencoder(AutoencoderBase):
+class CNNAutoencoder(Autoencoder):
     def _define_layers(self):
         input_channels = self.data_params.features_per_poll
 

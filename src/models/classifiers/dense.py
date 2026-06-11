@@ -1,9 +1,9 @@
 import torch
 
-from base import ClassifierBase
+from base import Classifier
 
 
-class DenseBinaryClassifier(ClassifierBase):
+class DenseBinaryClassifier(Classifier):
     def _define_layers(self):
         input_dimension = self.data_params.features_per_window
 

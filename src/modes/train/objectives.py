@@ -20,9 +20,9 @@ def objective(
     """Objective function for hyperparameter tuning."""
     # Choose a scaler
     scaler_name = config.scaler_name or trial.suggest_categorical(
-        name="scaler_name", choices=[scaler.__name__ for scaler in scalers.SCALER_CACHE]
+        name="scaler_name", choices=scalers.SUPPORTED_SCALERS.keys()
     )
-    data_module.load(scaler_name)
+    data_module.scaler = scalers.SUPPORTED_SCALERS[scaler_name]
 
     # Set up model
     model_params = helpers.suggest_model_params(trial, config)

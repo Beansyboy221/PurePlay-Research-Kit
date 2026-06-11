@@ -1,9 +1,9 @@
 import torch
 
-from base import ClassifierBase
+from base import Classifier
 
 
-class LSTMBinaryClassifier(ClassifierBase):
+class LSTMBinaryClassifier(Classifier):
     def _define_layers(self):
         self.feature_extractor = torch.nn.LSTM(
             input_size=self.data_params.features_per_poll,

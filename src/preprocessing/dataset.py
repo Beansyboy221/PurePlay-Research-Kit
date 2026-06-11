@@ -39,7 +39,7 @@ class ParquetDataset(torch.utils.data.Dataset):
         self.file_path = file_path
         logger.info(f"Creating dataset from file: {file_path}...")
 
-        logger.info("Loading metadata from file...")
+        logger.info("Loading metadata...")
         metadata = polars.read_parquet_metadata(file_path)
         if not metadata:
             raise RuntimeError("File is missing metadata.")
@@ -50,7 +50,7 @@ class ParquetDataset(torch.utils.data.Dataset):
             == "true",
         )
 
-        logger.info("Loading data from file...")
+        logger.info("Loading data...")
         data_frame = self.load_file(file_path, self.params.whitelist)
 
         logger.info("Scaling data...")

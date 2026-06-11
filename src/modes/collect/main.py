@@ -26,7 +26,7 @@ def main(config: config.CollectConfig) -> None:
     )
     schema = pyarrow.schema(
         fields=[(feature, pyarrow.float32()) for feature in config.whitelist],
-        metadata={b"polling_rate": str(config.polling_rate).encode("utf-8")},
+        metadata={"polling_rate": str(config.polling_rate)},
     )
     writer_queue = queue.Queue()
     writer_thread = threading.Thread(
@@ -41,7 +41,7 @@ def main(config: config.CollectConfig) -> None:
 
     poll_interval = 1.0 / config.polling_rate
     logger.info(
-        f'Polling at {config.polling_rate}Hz (press {", ".join(config.kill_binds)} to stop)...'
+        f"Polling at {config.polling_rate}Hz (press {', '.join(config.kill_binds)} to stop)..."
     )
     try:
         while not poll_helpers.are_active(config.kill_binds, config.kill_bind_logic):

@@ -6,8 +6,13 @@ import torch
 
 from beanml import BaseModel, TrainStrategy
 
+from preprocessing.scalers import SupportedScaler
+from preprocessing.params import DataParams
 
-class AutoencoderBase(BaseModel, abc.ABC):
+
+class Autoencoder(BaseModel, abc.ABC):
+    scaler: SupportedScaler
+    data_params: DataParams
     training_type = TrainStrategy.UNSUPERVISED
     loss_function = torch.nn.MSELoss()
 

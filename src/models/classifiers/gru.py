@@ -1,9 +1,9 @@
 import torch
 
-from base import ClassifierBase
+from base import Classifier
 
 
-class GRUBinaryClassifier(ClassifierBase):
+class GRUBinaryClassifier(Classifier):
     def _define_layers(self):
         self.feature_extractor = torch.nn.GRU(
             input_size=self.data_params.features_per_poll,

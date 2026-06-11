@@ -1,1 +1,1 @@
-"""Custom prompters that use a Tkinter dialog."""
+"""Custom prompters that use Tkinter dialogs."""

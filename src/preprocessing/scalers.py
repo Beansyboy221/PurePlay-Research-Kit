@@ -14,10 +14,10 @@ class SupportedScaler(typing.Protocol):
     def transform(self, X) -> typing.Union[numpy.ndarray, pandas.DataFrame]: ...
 
 
-SCALER_CACHE: frozenset[SupportedScaler] = (
-    sklearn.preprocessing.StandardScaler(),
-    sklearn.preprocessing.StandardScaler(with_mean=False),
-    sklearn.preprocessing.MinMaxScaler(),
-    sklearn.preprocessing.RobustScaler(),
-    sklearn.preprocessing.MaxAbsScaler(),
-)
+SUPPORTED_SCALERS: dict[str, SupportedScaler] = {
+    "standard": sklearn.preprocessing.StandardScaler(),
+    "standard_sparse": sklearn.preprocessing.StandardScaler(with_mean=False),
+    "min_max": sklearn.preprocessing.MinMaxScaler(),
+    "robust": sklearn.preprocessing.RobustScaler(),
+    "max_abs": sklearn.preprocessing.MaxAbsScaler(),
+}

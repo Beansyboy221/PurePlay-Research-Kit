@@ -36,7 +36,7 @@ Unlike traditional signature-based anti-cheats, PPRK provides the ability to ide
    ```
 
 3. **Configure your settings**:
-   Read the [Usage Guide](https://github.com/Beansyboy221/PurePlay-Research-Kit/tree/main/docs/config.md) to better understand your options.
+   Read the [Usage Guide](https://github.com/Beansyboy221/PurePlay-Research-Kit/tree/main/docs/usage.md) to better understand your options.
 
 4. **Start the application**:
 

@@ -1,9 +1,9 @@
 import torch
 
-from base import ClassifierBase
+from base import Classifier
 
 
-class CNNBinaryClassifier(ClassifierBase):
+class CNNBinaryClassifier(Classifier):
     def _define_layers(self):
         layers = []
         current_channels = self.data_params.features_per_poll

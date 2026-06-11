@@ -15,7 +15,7 @@ COMMON_DATALOADER_KWARGS = {
     "persistent_workers": True,
 }
 
-logger = logging.getLogger("Preprocessing")
+logger = logging.getLogger()
 
 
 class PurePlayDataModule(lightning.LightningDataModule):
@@ -36,7 +36,9 @@ class PurePlayDataModule(lightning.LightningDataModule):
         self.val_dirs = val_dirs or {}
         self.test_dir = {test_dir: 0}
 
-        self.scaler: scalers.SupportedScaler = scalers.SCALER_CACHE[0]
+        self.scaler: scalers.SupportedScaler = next(
+            iter(scalers.SUPPORTED_SCALERS.values())
+        )
         self.builder = dataset_builder.DatasetBuilder(self)
 
         self.train_dataset = None
@@ -84,7 +86,7 @@ class PurePlayDataModule(lightning.LightningDataModule):
             logger.info("Checking param consistency between datasets...")
             self.builder.check_consistency(self.test_datasets)
 
-        logger.info(f"Setup complete for stage: {stage}.")
+        logger.info(f"Setup complete for stage: {stage}")
 
     def train_dataloader(self) -> torch.utils.data.DataLoader:
         return torch.utils.data.DataLoader(

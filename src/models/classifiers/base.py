@@ -7,8 +7,13 @@ import torch
 
 from beanml import BaseModel, TrainStrategy
 
+from preprocessing.scalers import SupportedScaler
+from preprocessing.params import DataParams
 
-class ClassifierBase(BaseModel, abc.ABC):
+
+class Classifier(BaseModel, abc.ABC):
+    scaler: SupportedScaler
+    data_params: DataParams
     training_type = TrainStrategy.SUPERVISED
     loss_function = torch.nn.BCEWithLogitsLoss()
     test_accuracy = torchmetrics.classification.BinaryAccuracy()

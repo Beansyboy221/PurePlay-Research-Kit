@@ -1,9 +1,9 @@
 import torch
 
-from base import AutoencoderBase
+from base import Autoencoder
 
 
-class LSTMAutoencoder(AutoencoderBase):
+class LSTMAutoencoder(Autoencoder):
     def _define_layers(self):
         self.encoder = torch.nn.LSTM(
             input_size=self.data_params.features_per_poll,

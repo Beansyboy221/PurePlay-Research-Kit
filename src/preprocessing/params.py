@@ -1,10 +1,7 @@
 """Params needed for preprocessing."""
 
-import tkinter.simpledialog
-
 import pydantic
 
-from beanapp import prompt
 from beaninput import config
 from beaninput.controller import binds as controller_binds
 from beaninput.keyboard import binds as key_binds
@@ -41,33 +38,16 @@ class ProcessingParams(pydantic.BaseModel):
     """Whether or not empty rows of features should be used for training."""
 
     polls_per_window: int = pydantic.Field(
-        default_factory=lambda: prompt(
-            cli_message="Please enter a window size (even number).",
-            dialog=tkinter.simpledialog.askinteger(
-                title="Polls per Window",
-                prompt="Please choose a window size (even number).",
-                minvalue=8,
-                initialvalue=DEFAULT_POLLS_PER_WINDOW,
-            ),
-            prompt_default=DEFAULT_POLLS_PER_WINDOW,
-        ),
+        default=DEFAULT_POLLS_PER_WINDOW,
+        description="The number of polls(rows) of the whitelisted features in each window.",
         multiple_of=2,
         ge=8,
     )
     """The number of polls(rows) of the whitelisted features in each window."""
 
     window_stride: int = pydantic.Field(
-        default_factory=lambda: prompt(
-            cli_message="Please enter a window stride.",
-            dialog=tkinter.simpledialog.askinteger(
-                title="Window Stride",
-                prompt="Please choose a window stride.",
-                minvalue=1,
-                maxvalue=DEFAULT_POLLS_PER_WINDOW - 1,
-                initialvalue=DEFAULT_POLLS_PER_WINDOW // 2,
-            ),
-            prompt_default=DEFAULT_POLLS_PER_WINDOW // 2,
-        ),
+        default=DEFAULT_POLLS_PER_WINDOW // 2,
+        description="The number of polls(rows) to skip between windows.",
         multiple_of=2,
         ge=1,
         lt=DEFAULT_POLLS_PER_WINDOW,
@@ -75,7 +55,7 @@ class ProcessingParams(pydantic.BaseModel):
     """The number of polls(rows) to skip between windows."""
 
 
-class DataParams(config.PollParams, ProcessingParams):
+class DataParams(config.PollConfig, ProcessingParams):
     """All data parameters. (For saving and loading datasets.)"""
 
     @property

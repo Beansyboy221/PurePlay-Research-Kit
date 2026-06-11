@@ -17,28 +17,39 @@ class TrainConfig(
 ):
     """Fields expected for train mode to work properly."""
 
-    save_dir: pydantic.DirectoryPath = pydantic.Field(default="models")
+    save_dir: pydantic.DirectoryPath = pydantic.Field(
+        default="models",
+        description="The directory to save the models to.",
+    )
     """The directory to save the models to."""
 
     training_file_dir: pydantic.DirectoryPath = pydantic.Field(
-        default="data\\train\\benign"
+        default="data\\train\\benign",
+        description="The directory containing the training files.",
     )
     """The directory containing the training files."""
 
     validation_file_dir: pydantic.DirectoryPath = pydantic.Field(
-        default="data\\val\\benign"
+        default="data\\val\\benign",
+        description="The directory containing the validation files.",
     )
     """The directory containing the validation files."""
 
     cheat_training_file_dir: pydantic.DirectoryPath | None = pydantic.Field(
-        default="data\\train\\cheat"
+        default="data\\train\\cheat",
+        description="The directory containing the cheat training files.",
     )
     """The directory containing the cheat training files."""
 
     cheat_validation_file_dir: pydantic.DirectoryPath | None = pydantic.Field(
-        default="data\\val\\cheat"
+        default="data\\val\\cheat",
+        description="The directory containing the cheat validation files.",
     )
     """The directory containing the cheat validation files."""
 
-    batch_size_tune_epochs: int = pydantic.Field(default=50, ge=1)
+    batch_size_tune_epochs: int = pydantic.Field(
+        default=50,
+        description="The number of epochs to tune the batch size for.",
+        ge=1,
+    )
     """The number of epochs to tune the batch size for."""

@@ -25,7 +25,7 @@ def tune_batch_size(
             latent_size=data_module.params.features_per_poll,
         ),
         data_params=data_module.params,
-        scaler=data_module.scaler_manager.scaler,
+        scaler=data_module.scaler,
     )
     trainer = lightning.Trainer(
         max_epochs=config.batch_size_tune_epochs,

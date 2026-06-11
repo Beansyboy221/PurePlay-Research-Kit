@@ -48,9 +48,7 @@ def main(config: config.DeployConfig) -> None:
             fields=[
                 (feature, pyarrow.float32()) for feature in model.data_params.whitelist
             ],
-            metadata={
-                b"polling_rate": str(model.data_params.polling_rate).encode("utf-8")
-            },
+            metadata={"polling_rate": str(model.data_params.polling_rate)},
         )
         writer_queue = queue.Queue()
         writer_thread = threading.Thread(
@@ -65,7 +63,7 @@ def main(config: config.DeployConfig) -> None:
 
     poll_interval = 1.0 / model.data_params.polling_rate
     logger.info(
-        f'Polling at {model.data_params.polling_rate}Hz (press {", ".join(config.kill_binds)} to stop)...'
+        f"Polling at {model.data_params.polling_rate}Hz (press {', '.join(config.kill_binds)} to stop)..."
     )
     total_polls = 0
     try:

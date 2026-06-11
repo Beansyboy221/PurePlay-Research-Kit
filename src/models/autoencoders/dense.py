@@ -1,9 +1,9 @@
 import torch
 
-from base import AutoencoderBase
+from base import Autoencoder
 
 
-class DenseAutoencoder(AutoencoderBase):
+class DenseAutoencoder(Autoencoder):
     def _define_layers(self):
         input_dimension = (
             self.data_params.polls_per_window * self.data_params.features_per_poll

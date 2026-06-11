@@ -1,8 +1,8 @@
 import pydantic
 import typing
 
-from beanapp.config import StartupConfig
 from beaninput.config import PollConfig, KillBindMixin
+from beanapp import StartupConfig
 
 from misc import validators
 
@@ -10,7 +10,10 @@ from misc import validators
 class CollectConfig(StartupConfig, PollConfig, KillBindMixin):
     """Fields expected for collect mode to work properly."""
 
-    save_dir: pydantic.DirectoryPath = pydantic.Field(default="data")
+    save_dir: pydantic.DirectoryPath = pydantic.Field(
+        default="data",
+        description="The directory to save the data to.",
+    )
     """The directory to save the data to."""
 
     @pydantic.model_validator(mode="after")
